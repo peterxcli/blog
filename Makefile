@@ -7,6 +7,10 @@ build:
 	hugo
 .PHONY: build
 
+host: build
+	cd public && python3 -m http.server 8000
+.PHONY: host
+
 new-en:
 	if [ -z "$(POST)" ];then echo "Usage: make new-en POST=my-post-name"; exit 1; fi
 	# create directory if not exists

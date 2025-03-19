@@ -5,13 +5,13 @@ autoSwitchAppearance = true
 enableSearch = true
 enableCodeCopy = true
 
-mainSections = ["database","backend","devops","note","intern","open-source-contribution"]
+mainSections = ["database","backend","devops","note","intern", "oss", "ozone"]
 
 disableImageOptimization = false
 disableTextInHeader = false
 
-defaultBackgroundImage = "/img/setting/Background.svg"
-defaultFeaturedImage = "/img/setting/DefaultFeatured.svg"
+# defaultBackgroundImage = "/img/setting/Background.svg"
+# defaultFeaturedImage = "/img/setting/DefaultFeatured.svg"
 
 highlightCurrentMenuArea = true
 smartTOC = true
