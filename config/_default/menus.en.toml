@@ -1,0 +1,17 @@
+[[main]]
+none = "none"
+
+[[main]]
+pre = "github"
+url = "https://github.com/peterxcli"
+identifier = "github"
+weight = 9999
+
+[[main]]
+  pre = "linkedin"
+  identifier = "linkedin"
+  url = "https://www.linkedin.com/in/peterxcli/"
+  weight = 9999
+
+[[footer]]
+none = "none"

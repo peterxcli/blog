@@ -1,0 +1,3 @@
+baseURL = 'https://blog.peterxcli.dev/'
+languageCode = 'en-us'
+title = "Peter Lee's Developer Blog"

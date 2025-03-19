@@ -1,0 +1,69 @@
+{{ $url := .Get "url" }}
+{{ $type := .Get "type" }}
+{{ $startLine := .Get "startLine" | default 1 | int }}
+{{ $startLine = sub $startLine 1 }}
+{{ $endLine := .Get "endLine" | default -1 | int }}
+{{ $selectedLines := slice }}
+{{ $linenos := .Get "linenos" | default "table" }}
+{{ $hl_lines := .Get "hl_lines" | default "" }}
+{{ $linenostart := .Get "linenostart" | default -1 | int }}
+
+{{ $codeConfig := slice }}
+
+{{ if ne $linenos "" }}
+  {{ $codeConfig = $codeConfig |  append (printf "linenos=%s" $linenos) }}
+{{ end }}
+{{ if ne $linenostart -1 }}
+  {{ $codeConfig = $codeConfig |  append (printf "linenostart=%d" $linenostart) }}
+{{ else if ne $endLine -1 }}
+  {{ $codeConfig = $codeConfig |  append (printf "linenostart=%d" ( add $startLine 1 ) ) }}
+{{ end }}
+{{ if ne $hl_lines "" }}
+  {{ $hl_lines_slice := split $hl_lines "," }}
+  {{ $hl_lines = "" }}
+
+  {{ range $hl_lines_slice }}
+    {{ if ne $hl_lines "" }}
+      {{ $hl_lines = printf "%s," $hl_lines }}
+    {{ end }}
+    {{ if strings.Contains . "-" }}
+      {{ $range := split . "-" }}
+      {{ $rangeStart := index $range 0 | int }}
+      {{ $rangeStart = sub $rangeStart $startLine }}
+      {{ $rangeEnd := index $range 1 | int }}
+      {{ $rangeEnd = sub $rangeEnd $startLine }}
+      {{ $hl_lines = printf "%s\"%d-%d\"" $hl_lines $rangeStart $rangeEnd }}
+    {{ else }}
+      {{ $hl_line := int . }}
+      {{ $hl_line = sub $hl_line $startLine  }}
+      {{ $hl_lines = printf "%s%d" $hl_lines $hl_line }}
+    {{ end }}
+  {{ end }}
+
+  {{ $codeConfig = $codeConfig |  append (printf "hl_lines=[%s]" $hl_lines) }}
+{{ end }}
+
+{{ $codeConfigStr := (delimit $codeConfig ",") }}
+{{ $codeConfigStr = printf "{%s}" $codeConfigStr }}
+
+{{ with resources.GetRemote ( printf $url ) }}
+  {{ $lines := split .Content "\n" }}
+  {{ $totalLine := $lines | len }}
+
+  {{ if ne $endLine -1 }}
+    {{ $endLine = math.Min $endLine $totalLine }}
+  {{ else }}
+    {{ $endLine = $totalLine }}
+  {{ end }}
+  
+  {{ if gt $startLine $endLine }}
+    {{ errorf "Code Importer Shortcode - startLine is greater than endLine" . }}
+  {{ end }}
+
+  {{ $selectedLines := first $endLine $lines }}
+  {{ $selectedLines = after $startLine $selectedLines }}
+  {{ $codeBlock := printf "```%s %s\n%s\n```" $type $codeConfigStr (delimit $selectedLines "\n") }}
+  {{ $codeBlock | markdownify }}
+{{ else }}
+  {{ errorf "Code Importer Shortcode - Unable to get remote resource" . }}
+{{ end }}

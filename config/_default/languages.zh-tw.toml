@@ -1,0 +1,25 @@
+# config/_default/languages.zh-tw.toml
+languageCode = "zh-tw"
+languageName = "繁體中文"
+weight = 2
+title = ""
+
+[params]
+  displayName = "繁體中文"
+  isoCode = "zh-tw"
+  rtl = false
+  dateFormat = "2006-01-02"
+  logo = "profle.png"
+  description = "Peter Lee's Developer Blog"
+
+  [author]
+    name = "Peter Lee"
+    image = "profle.png"
+    headline = "NCKU CSIE | BE Intern @Dcard"
+    # show in author avatar bottom
+    bio = "Open Source Contributor | Distributed System | Storage"
+    links = [
+      { github = "https://github.com/peterxcli" },
+      { linkedin = "https://www.linkedin.com/in/peterxcli/" },
+      { email = "mailto:peterxcli@gmail.com" }
+    ]
