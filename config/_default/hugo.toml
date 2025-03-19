@@ -4,7 +4,6 @@
 
 theme = "blowfish"
 baseURL = "http://localhost:1313"
-# baseURL = "https://jason810496.github.io/blog/"
 defaultContentLanguage = "en"
 disableLanguages = [] #to allow translation work requiring shipping to production
 

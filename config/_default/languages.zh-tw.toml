@@ -9,7 +9,7 @@ title = ""
   isoCode = "zh-tw"
   rtl = false
   dateFormat = "2006-01-02"
-  logo = "profle.png"
+  logo = "home.png"
   description = "Peter Lee's Developer Blog"
 
   [author]
