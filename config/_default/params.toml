@@ -29,7 +29,7 @@ smartTOCHideUnfocusedChildren = false
 
 [homepage]
   layout = "background" # valid options: page, profile, custom
-  #homepageImage = "img/setting/background.jpg"
+  homepageImage = "home.png"
   showRecent = true # show recent items, show `mainSections` items
   showRecentItems = 12
   showMoreLink = true
@@ -109,3 +109,16 @@ smartTOCHideUnfocusedChildren = false
   groupByYear = false
   cardView = true
   cardViewScreenWidth = false
+
+[author]
+    name = "Peter Lee"
+    email = "peterxcli@gmail.com"
+    # image = "profle.png"
+    headline = "Apache Committer @Ozone | NCKU CSIE | BE Intern @Dcard"
+    # show in author avatar bottom
+    bio = "OSS Contributor | Distributed System | Storage"
+    links = [
+      { github = "https://github.com/peterxcli" },
+      { linkedin = "https://www.linkedin.com/in/peterxcli/" },
+      { email = "mailto:peterxcli@gmail.com" }
+    ]

@@ -10,17 +10,5 @@ title = "Peter Lee's Blog"
   rtl = false
   dateFormat = "2006-01-02"
   # logo = "home.png"
-  secondaryLogo = "home.png"
-  # description = "Peter Lee's Developer Blog"
-
-  [author]
-    name = "Peter Lee"
-    image = "profle.png"
-    headline = "NCKU CSIE | BE Intern @Dcard"
-    # show in author avatar bottom
-    bio = "Open Source Contributor | Distributed System | Storage"
-    links = [
-      { github = "https://github.com/peterxcli" },
-      { linkedin = "https://www.linkedin.com/in/peterxcli/" },
-      { email = "mailto:peterxcli@gmail.com" }
-    ]
+  # secondaryLogo = "home.png"
+  description = "Peter Lee's Developer Blog"
