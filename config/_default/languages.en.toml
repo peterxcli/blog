@@ -1,16 +1,17 @@
-# config/_default/languages.zh-tw.toml
+# config/_default/languages.en.toml
 languageCode = "en"
 languageName = "English"
 weight = 1
-title = ""
+title = "Peter Lee's Blog"
 
 [params]
   displayName = "English"
   isoCode = "en"
   rtl = false
   dateFormat = "2006-01-02"
-  logo = "home.png"
-  description = "Peter Lee's Developer Blog"
+  # logo = "home.png"
+  secondaryLogo = "home.png"
+  # description = "Peter Lee's Developer Blog"
 
   [author]
     name = "Peter Lee"

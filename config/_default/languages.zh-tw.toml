@@ -2,14 +2,14 @@
 languageCode = "zh-tw"
 languageName = "繁體中文"
 weight = 2
-title = ""
+title = "Peter Lee's Blog"
 
 [params]
   displayName = "繁體中文"
   isoCode = "zh-tw"
   rtl = false
   dateFormat = "2006-01-02"
-  logo = "home.png"
+  # logo = "home.png"
   description = "Peter Lee's Developer Blog"
 
   [author]

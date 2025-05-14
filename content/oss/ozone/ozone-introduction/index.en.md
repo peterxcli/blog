@@ -1,7 +1,7 @@
 ---
 title: "Ozone Introduction"
-summary: ""
-description: ""
+summary: "Introduction to Ozone"
+description: "Introduction to Ozone"
 date: 2025-03-19T17:17:38+08:00
 slug: "ozone-introduction"
 tags: ["blog","en", "ozone", "oss"]
