@@ -105,13 +105,13 @@ Line Login Integration Tutorial
 
 (2000 virtual users, for 1 mins)
 
-![2024-02-18T205350](./2024-02-18T205350.png)
+![2024-02-18T205350](2024-02-18T205350.png)
 
 #### Redis Cache + DB
 
 (2000 virtual users, for 1 mins)
 
-![2024-02-18T205401](./2024-02-18T205401.png)
+![2024-02-18T205401](2024-02-18T205401.png)
 
 ```go
 type EventCache struct {
@@ -202,7 +202,7 @@ sudo certbot install --cert-name nckubikefestival.ncku.edu.tw
 > the default policy is `strict-origin-when-cross-origin`
 >
 > In my case, I use the additional redirect_path(which is set in query string ``) to compose the frontend redirect path:
-> ![2024-02-21T155843](./2024-02-21T155843.png)
+> ![2024-02-21T155843](2024-02-21T155843.png)
 >
 > It works fine when I am developing at my local computer, but in the production environment, it always redirect user to the page with duplicate path, like: `/bikefest/main-stagebikefest/main-stage/`
 >

@@ -16,9 +16,9 @@ draft: false
 
 ## Overview
 
-![1742375991588](./1742375991588.png)
+![1742375991588](1742375991588.png)
 
-![1742376029768](./1742376029768.png)
+![1742376029768](1742376029768.png)
 
 ## Ratis
 
@@ -42,7 +42,7 @@ Containers are the fundamental replication unit of Ozone/HDDS, they are managed 
 
 Containers are big binary units (5Gb by default) which can contain multiple blocks:
 
-![1742376685050](./1742376685050.png)
+![1742376685050](1742376685050.png)
 
 Blocks are local information and not managed by SCM. Therefore even if billions of small files are created in the system (which means billions of blocks are created), only of the status of the containers will be reported by the Datanodes and containers will be replicated.
 
@@ -66,7 +66,7 @@ When a client wants to read a key from Ozone, the client sends the name of the k
 
 An Ozone block contains the container ID and a local ID. The figure below shows the logical layout of the Ozone block.
 
-![1742376694749](./1742376694749.png)
+![1742376694749](1742376694749.png)
 
 The container ID lets the clients discover the location of the container. The authoritative information about where a container is located is with the Storage Container Manager (SCM). In most cases, the container location will be cached by Ozone Manager and will be returned along with the Ozone blocks.
 
@@ -82,9 +82,9 @@ Metadata store in rocksdb
 
 ### Double Buffer
 
-![1742376072187](./1742376072187.png)
+![1742376072187](1742376072187.png)
 
-![1742376077700](./1742376077700.png)
+![1742376077700](1742376077700.png)
 
 - `preExecute()`
 	executed at RPC context level. Generate a OMRequest object with all the
@@ -101,7 +101,7 @@ generated in this step.
 
 ### Leader side Execution (to replace Double Buffer)
 
-![1742376093790](./1742376093790.png)
+![1742376093790](1742376093790.png)
 
 > [!Note]
 > volume/bucket level lock -> key prefix lock
@@ -120,11 +120,11 @@ generated in this step.
 
 What does SCM manage?
 
-![1742376120850](./1742376120850.png)
+![1742376120850](1742376120850.png)
 
 How does it manage?
 
-![1742376131632](./1742376131632.png)
+![1742376131632](1742376131632.png)
 
 #### Metadata
 
@@ -149,11 +149,11 @@ ozone debug ldb --db=/data/metadata/scm.db value-schema --cf=deletedBlocks | jq 
 ```
 #### Services
 
-![1742376177353](./1742376177353.png)
+![1742376177353](1742376177353.png)
 
 ##### Node Lifecycle
 
-| ![1742376189659](./1742376189659.png) | ![1742376198093](./1742376198093.png) |
+| ![1742376189659](1742376189659.png) | ![1742376198093](1742376198093.png) |
 | ------------------------------------ | ------------------------------------ |
 
 > [!Note]
@@ -187,7 +187,7 @@ ozone debug ldb --db=/data/metadata/scm.db value-schema --cf=deletedBlocks | jq 
 
 ##### Pipeline Lifecycle
 
-![1742376210653](./1742376210653.png)
+![1742376210653](1742376210653.png)
 
 Types of Pipelines
 
@@ -258,11 +258,11 @@ LOG.error("pipeline Action {} on pipeline {}.Reason : {}",
 
 ###### Container State Transition
 
-![1742376220605](./1742376220605.png)
+![1742376220605](1742376220605.png)
 
 ###### Container State Flow
 
-![1742376227414](./1742376227414.png)
+![1742376227414](1742376227414.png)
 
 Container creation logic Clients create the container. The containers are directly moved to OPEN state in SCM upon creation. There is no allocated state for containers.
 
@@ -334,7 +334,7 @@ Check SCM Web UI for details.
 
 #### Disk Layout
 
-![1742376242216](./1742376242216.png)
+![1742376242216](1742376242216.png)
 
 The version file
 
@@ -350,7 +350,7 @@ ozone debug ratislogparser scm -s=/<Ratis Dir>/<Raft Group ID>/current/log_inpro
 
 #### High Availability
 
-![1742376253250](./1742376253250.png)
+![1742376253250](1742376253250.png)
 
 #### Datanode Heartbeat Protocol
 
@@ -398,7 +398,7 @@ Note that the Ratis RaftServer handles the incoming network traffic. No change i
 
 topology aware
 
-![1742376263088](./1742376263088.png)
+![1742376263088](1742376263088.png)
 
 ## Ozone Realtime Cross-Region Bucket Replication
 
