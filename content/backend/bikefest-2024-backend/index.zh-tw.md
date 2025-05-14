@@ -1,7 +1,7 @@
 ---
 title: "Bikefest 2024 Backend"
-summary: "2024 成大單車節網站後端"
-description: "2024 成大單車節網站後端"
+summary: "2024 成大單車節網站後端開發"
+description: "2024 成大單車節網站後端開發"
 date: 2025-03-19T13:54:54+08:00
 slug: "bikefest-2024-backend"
 tags: ["blog","zh-tw"]

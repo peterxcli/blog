@@ -1,7 +1,7 @@
 ---
 title: "Ozone Introduction"
-summary: ""
-description: ""
+summary: "Apache Ozone 介紹"
+description: "Apache Ozone 介紹"
 date: 2025-03-19T17:17:38+08:00
 slug: "ozone-introduction"
 tags: ["blog","zh-tw", "ozone", "oss"]
