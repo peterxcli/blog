@@ -325,7 +325,7 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
    [Attlia](https://github.com/adoroszlai), [SemmiChen](https://github.com/ChenSammi), 
    [Ivan](https://github.com/ivandika3), [Swami](https://github.com/swamirishi) 等列不完全部的所有 PMC/Committer 們的 Review & Discussion, 
    不厭其煩地指出潛在問題也很耐心的回答我的問題
-4. 我的指導教授[莊坤達](https://www.csie.ncku.edu.tw/zh-hant/members/41)邀請[莊偉赳](https://www.linkedin.com/in/weichiuchuang/)來成大演講, 以及讓我的專題可以 Focus on Ozone, 在各方面都給予我很大的幫助！
+4. 我的指導教授[莊坤達](https://www.csie.ncku.edu.tw/zh-hant/members/41)邀請[莊偉赳](https://www.linkedin.com/in/weichiuchuang/)來成大演講, 以及讓我的專題可以 Focus on Ozone, 在各方面都給予我很大的幫助！ (而且演講那天剛好那天是我第二天開始貢獻 Ozone, 超巧的, 我還在演講結束找 Jesse 問了一堆問題)
 5. 謝謝我的室友們([Eric](https://www.linkedin.com/in/erichung0906/), [Jason](https://www.linkedin.com/in/zhe-you-liu/), [Owen](https://www.linkedin.com/in/youcheng-lin/))都很努力, 讓我沒有廢掉. 雖然我原本是期待他們以後開公司養我,
    但把雞蛋都放在同個籃子的話可以放冰箱, 所以我自己還是需要努力一下, 以免他們以後不要我了😭\
    BTW, 下一個 Committer 就是你了 [Owen](https://www.linkedin.com/in/youcheng-lin/)!
