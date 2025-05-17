@@ -1,6 +1,6 @@
 ---
-title: "Apache Ozone、4 個月、50 個 PR、Committer"
-summary: "要想自己做過什麼事也太難了吧"
+title: "Apache Ozone、4 個月、50 個 PR、40 個 PR Review、Committer"
+summary: "如何成為 Open Source Committer (Apache Ozone) 大學生 15 周心得分享"
 description: "要想自己做過什麼事也太難了吧"
 date: 2025-05-14T17:17:38+08:00
 slug: "becoming-an-ozone-committer"
