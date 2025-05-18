@@ -265,7 +265,7 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 
 ### 我自己對於 Ozone 的了解
 
-成為 Committer != 能夠 100% 掌握整個專案, 就像 linux module 也有切分 Code Owner (雖然他們 Codebase 是真的大...)
+成為 Committer != 能夠 100% 掌握整個專案, 就像 linux source code 也有切分 Code Owner (雖然他們 Codebase 是真的大...)
 
 我感覺我自己最多只了解了 15% 的 Codebase, 而且我現在對 Datanode Server/Client 的 Data read/write path 還不是很熟, 基本上就像是你說你是廚師但不會開火一樣
 
