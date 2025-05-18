@@ -2,7 +2,7 @@
 title: "Building a high-performance, scalable server for AD management"
 summary: "使用 in-memory 資料庫、Redis 串流和 PostgreSQL 實現 96,000 QPS 的廣告管理系統，具備複製、自訂索引和容錯機制。"
 description: "使用 in-memory 資料庫、Redis 串流和 PostgreSQL 實現 96,000 QPS 的廣告管理系統，具備複製、自訂索引和容錯機制。"
-date: 2025-03-19T13:18:02+08:00
+date: 2024-04-15T13:18:02+08:00
 slug: "ad-server"
 tags: ["blog","zh-tw"]
 # series: ["Documentation"]

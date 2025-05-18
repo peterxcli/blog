@@ -2,7 +2,7 @@
 title: "Building a high-performance, scalable server for AD management"
 summary: "A high-performance advertisement management system achieving 96,000 QPS through in-memory database, Redis streams, and PostgreSQL, featuring replica, custom indexing, and fault tolerance mechanisms."
 description: ""
-date: 2025-03-19T13:18:02+08:00
+date: 2024-04-15T13:18:02+08:00
 slug: "ad-server"
 tags: ["blog","en"]
 # series: ["Documentation"]

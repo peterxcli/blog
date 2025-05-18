@@ -2,7 +2,7 @@
 title: "Bikefest 2024 Backend"
 summary: "How we build a backend system for NCKU Bikefest 2024 Website"
 description: "How we build a backend system for NCKU Bikefest 2024 Website"
-date: 2025-03-19T13:54:54+08:00
+date: 2024-03-01T13:54:54+08:00
 slug: "bikefest-2024-backend"
 tags: ["blog","en"]
 # series: ["Documentation"]
