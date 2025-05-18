@@ -98,6 +98,8 @@ Huge thanks to Jesse for shouting it out on his socials—professors reposted it
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | ![fb-post-3](fb-post-3.png "https://www.facebook.com/share/p/1FGNLBitAw/") | ![fb-post-4](fb-post-4.png "https://www.facebook.com/share/p/12Jyf5iAJ4K/") |
 
+![kafkaesque](kafkaesque.gif)
+
 ## “源來適你” (OpenSource4You) community
 
 Quoting [Zhe-You Liu](https://blog.zhu424.dev/open-source-contribution/becoming-an-apache-airflow-committer-from-0/#%E6%BA%90%E4%BE%86%E9%81%A9%E4%BD%A0):
@@ -289,5 +291,5 @@ Too long; didn’t read? Just hop into the [apache-ozone Slack channel](https://
 ### OpenSource4You
 
 * GitHub: [https://github.com/opensource4you](https://github.com/opensource4you)
-* Slack: [https://opensource4you.slack.com/](https://opensource4you.slack.com/) (Ozone channel isn’t public—use [this invite](https://opensource4you.slack.com/archives/C07PLV9QNLF))
+* Slack: [https://opensource4you.slack.com/](https://opensource4you.slack.com/) (Ozone channel is public, or use [this invite](https://opensource4you.slack.com/archives/C07PLV9QNLF))
 * Facebook: [https://www.facebook.com/opensource4you/](https://www.facebook.com/opensource4you/)

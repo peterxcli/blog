@@ -109,6 +109,8 @@ Ozone 有幾個不錯的點
 |---|---|
 | ![fb-post-3](fb-post-3.png "https://www.facebook.com/share/p/1FGNLBitAw/")  | ![fb-post-4](fb-post-4.png "https://www.facebook.com/share/p/12Jyf5iAJ4K/")  |
 
+![kafkaesque](kafkaesque.gif)
+
 <!-- {{< gallery >}}
     <img src="fb-post-1.png" class="grid-w50 md:grid-w33 xl:grid-w25" >
     <img src="fb-post-2.png" class="grid-w50 md:grid-w33 xl:grid-w25" >
@@ -343,5 +345,5 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 ### 源來適你
 
 - [GitHub](https://github.com/opensource4you)
-- [Slack](https://opensource4you.slack.com/) (apache-ozone 好像不是公開頻道, 要透過[連結](https://opensource4you.slack.com/archives/C07PLV9QNLF)加入)
+- [Slack](https://opensource4you.slack.com/) (apache-ozone 頻道都是公開的, 或是可以直接透過[連結](https://opensource4you.slack.com/archives/C07PLV9QNLF)加入)
 - [Facebook](https://www.facebook.com/opensource4you/)
