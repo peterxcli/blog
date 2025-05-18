@@ -125,7 +125,7 @@ Ozone 有幾個不錯的點
 > - [「源來適你」目前有 Mentor 帶的專案列表](https://github.com/opensource4you/readme?tab=readme-ov-file#%E7%9B%AE%E5%89%8D%E6%9C%89-mentor-%E5%B8%B6%E7%9A%84%E5%B0%88%E6%A1%88)
 > - 關於源來適你更深入的介紹 [Kafka Community Spotlight: TAIWAN 🇹🇼](https://bigdata.2minutestreaming.com/p/kafka-community-spotlight-taiwan) by [Stanislav’s Big Data Stream](https://bigdata.2minutestreaming.com/)
 
-最近很多 Committer, 源來適你也在 Dcard 14 樓 iKea 區辦了一個座談會, 劉大哥也在裡面... (他被放在最右邊大概是無人出其右的意思吧, 真的很羨慕...) 開玩笑的, no offense to anyone. 他們就真的都超厲害的！！
+最近很多 Committer, 源來適你也在 Dcard 14 樓 iKea 區辦了一個座談會, 劉大哥也在裡面... (他被放在最右邊大概是無人出其右的意思吧, 真的很羨慕...) 開個小玩笑而已, 他們就真的都超厲害的！！
 ![committer under 30](committers-under-30.png "https://www.facebook.com/share/p/1Bphui46dK/")
 
 ## 我在 Apache Ozone 的貢獻
