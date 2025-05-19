@@ -287,7 +287,7 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 
 2. 讀一下[官網 document](https://ozone.apache.org/docs/) 或是我之前整理的 [ozone introduction](../ozone-introduction/)
 
-3. 在源來是你 apache-ozone [頻道概述](https://opensource4you.slack.com/docs/T050YKMG1BK/F07Q5BAUF47)裡有很詳細寫有哪些 issue 可以貢獻:
+3. 在源來適你 apache-ozone [頻道概述](https://opensource4you.slack.com/docs/T050YKMG1BK/F07Q5BAUF47)裡有很詳細寫有哪些 issue 可以貢獻:
 
     - [Ozone Newbie Dashboard](https://issues.apache.org/jira/secure/Dashboard.jspa?selectPageId=12337728)
     - [Ozone Dashboard](https://issues.apache.org/jira/secure/Dashboard.jspa?selectPageId=12337030)
@@ -318,7 +318,7 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 
 ## 想感謝的人們～～～
 
-1. [蔡嘉平](https://www.linkedin.com/in/chia7712/)創辦源來是你社群讓我能接觸到很多人還有 Ozone 這個專案, 還有原本我在貢獻 Kafka 時的照顧, 也一直提供情緒價值, 讓我維持動力！
+1. [蔡嘉平](https://www.linkedin.com/in/chia7712/)創辦源來適你社群讓我能接觸到很多人還有 Ozone 這個專案, 還有原本我在貢獻 Kafka 時的照顧, 也一直提供情緒價值, 讓我維持動力！
   還有頻道裡也有很多人陪我講話、討論、給予建議, 讓我在各個方面都受到不少幫助！
 2. [莊偉赳](https://www.linkedin.com/in/weichiuchuang/)創立及主持 [apache-ozone 的 Slack 頻道](https://opensource4you.slack.com/archives/C07PLV9QNLF)讓我能接觸到大家也常常花時間回答我的問題和提名我成為 Committer！\
    [李仲恩](https://www.linkedin.com/in/chung-en-lee-ab7995225) host 頻道的會議, 他們都常常在頻道裡面跟大家互動, 提供很有價值的資訊
