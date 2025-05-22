@@ -312,7 +312,7 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 
 ## 字很多誒 不想讀完 想貢獻有沒有 quick start?
 
-反正就先加進來 [apache-ozone slack 頻道](https://opensource4you.slack.com/archives/C07PLV9QNLF)就對了, 踏出第一步之後只要等你/妳以後哪天感覺對了, 隨時都可以更深入的了解
+反正就先加進來 [apache-ozone slack 頻道](join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw)就對了, 踏出第一步之後只要等你/妳以後哪天感覺對了, 隨時都可以更深入的了解
 
 大家人都很好的～
 
