@@ -257,7 +257,8 @@ Pro tip from Zhe-You: [How to manage tasks](https://blog.zhu424.dev/open-source-
 
 ## TL;DR / Quick start
 
-Too long; didn’t read? Just hop into the [apache-ozone Slack channel](https://opensource4you.slack.com/archives/C07PLV9QNLF). Take that *first* step—dig deeper whenever the mood strikes. Everyone’s super nice. 💪
+Too long; didn’t read? Just hop into the [Apache Ozone Slack channel](https://opensource4you.slack.com/archives/C07PLV9QNLF). Take that *first* step—dig deeper whenever the mood strikes. Everyone’s super nice. 💪\
+(If you haven’t joined the [OpenSource4You Slack channel](https://opensource4you.slack.com/archives/C07PLV9QNLF), you can use [this invite](https://join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw) to join.)
 
 ---
 
@@ -284,12 +285,12 @@ Too long; didn’t read? Just hop into the [apache-ozone Slack channel](https://
 
 ### Apache Ozone
 
-* Official site: [https://ozone.apache.org/](https://ozone.apache.org/)
-* Jira: [https://issues.apache.org/jira/projects/HDDS](https://issues.apache.org/jira/projects/HDDS)
-* Dev mailing list: [https://lists.apache.org/list.html?dev@ozone.apache.org](https://lists.apache.org/list.html?dev@ozone.apache.org)
+* [Official site](https://ozone.apache.org/)
+* [Jira](https://issues.apache.org/jira/projects/HDDS)
+* [Dev mailing list](https://lists.apache.org/list.html?dev@ozone.apache.org)
 
 ### OpenSource4You
 
-* GitHub: [https://github.com/opensource4you](https://github.com/opensource4you)
-* Slack: [https://opensource4you.slack.com/](https://opensource4you.slack.com/) (Ozone channel is public, or use [this invite](https://opensource4you.slack.com/archives/C07PLV9QNLF))
-* Facebook: [https://www.facebook.com/opensource4you/](https://www.facebook.com/opensource4you/)
+* [GitHub](https://github.com/opensource4you)
+* [Slack](https://opensource4you.slack.com/) ([Apache Ozone channel](https://opensource4you.slack.com/archives/C07PLV9QNLF) is public, or if you haven’t joined the [OpenSource4You Slack channel](https://opensource4you.slack.com/archives/C07PLV9QNLF), you can use [this invite](https://join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw) to join.)
+* [Facebook](https://www.facebook.com/opensource4you/)

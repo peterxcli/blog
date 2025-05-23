@@ -312,7 +312,8 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 
 ## 字很多誒 不想讀完 想貢獻有沒有 quick start?
 
-反正就先加進來 [apache-ozone slack 頻道](join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw)就對了, 踏出第一步之後只要等你/妳以後哪天感覺對了, 隨時都可以更深入的了解
+反正就先進來 [apache-ozone slack 頻道](https://opensource4you.slack.com/archives/C07PLV9QNLF)就對了, 踏出第一步之後只要等你/妳以後哪天感覺對了, 隨時都可以更深入的了解\
+(還沒加入過源來適你 slack 頻道可以透過[邀請連結](https://join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw)加入)
 
 大家人都很好的～
 
@@ -345,5 +346,5 @@ https://en.wikipedia.org/wiki/Hard_link#Limitations
 ### 源來適你
 
 - [GitHub](https://github.com/opensource4you)
-- [Slack](https://opensource4you.slack.com/) (apache-ozone 頻道都是公開的, 或是可以直接透過[連結](https://opensource4you.slack.com/archives/C07PLV9QNLF)加入)
+- [Slack](https://opensource4you.slack.com/) ([apache-ozone 頻道](https://opensource4you.slack.com/archives/C07PLV9QNLF)是公開的, 如果還沒加入過源來適你可以透過[邀請連結](https://join.slack.com/t/opensource4you/shared_invite/zt-3585ed66a-8XzY9sjynGFFrkIyK9EbLw)加入)
 - [Facebook](https://www.facebook.com/opensource4you/)
