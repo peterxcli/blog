@@ -1,2 +1,4 @@
 baseURL = "https://blog.peterxcli.dev"
 languageCode = "en"
+
+googleAnalytics = "G-N88FG3V28K"
