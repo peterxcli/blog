@@ -169,8 +169,46 @@ mergeOmLockDetails(
 acquiredSnapshotLock = getOmLockDetails().isLockAcquired();
 ```
 
-Snapshot 的建立必須保證原子性，避免部分成功的情況, 且 Snapshot 建立時, 會涉及多個元件(Snapshot Chain Manager, Snapshot Info Table)，如果過程中發生錯誤, 需要把變更的資料都還原。
+還有 Snapshot 的建立過程必須保證原子性，避免部分成功的情況, 
 
+因為 Snapshot 建立時, 會涉及多個元件(Snapshot Chain Manager, Snapshot Info Table)所以如果過程中發生錯誤, 需要把變更的資料都還原。
+
+#### OzoneManagerLock
+
+我們是用一個自己寫的 lock manager [OzoneManagerLock](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/lock/OzoneManagerLock.java) 來上鎖
+
+它是由 Striped Lock + Level Lock 組成
+
+Striped Lock 可以對 stripe lock 可以管理不同的 key 各自的鎖 提供小顆粒度的鎖, 是用來保護具體的資源(如 bucket prefix(`volume1/bucket1`)、key prefix(`volume1/bucket1/key1`) 等) 
+
+```java
+Striped<ReadWriteLock> stripedLock;
+```
+
+#### Level Lock
+
+雖然 Stripe Lock 已經可以根據各種 bucket prefix/key prefix 來提供細粒度的鎖，但這只是解決了**不同資源之間的並發問題**。還有一個重要的問題需要解決：**同一 thread 內的操作順序和 Resource Level Constraint**。
+
+比方說，對於 `/volume1/bucket1` 這個 prefix，一個線程可能會同時操作多種不同層級的資源：
+- **Bucket 層級**：修改 bucket 的配置、ACL 等
+- **Key 層級**：讀寫 bucket 內的 key
+- **Snapshot 層級**：創建或刪除 snapshot
+
+如果沒有 level constraint，可能會出現問題：
+```java
+// 錯誤的操作順序：先操作 key，再操作 bucket
+lock.acquireWriteLock(KEY_PATH_LOCK, "volume1", "bucket1", "key1");
+// 此時如果嘗試修改 bucket 配置，可能會導致數據不一致
+lock.acquireWriteLock(BUCKET_LOCK, "volume1", "bucket1");  // 應該 throw exception
+```
+
+所以我們需要 **Level Lock** 來根據資源的優先級（priority）來決定同一線程內哪些資源可以成功獲取鎖。Ozone 定義的資源優先級：
+
+{{< codeimporter url="https://raw.githubusercontent.com/apache/ozone/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/lock/OzoneManagerLock.java" type="java" startLine="699" endLine="716" >}}
+
+Level Lock 使用 **bit mask** 實作，每個線程都有自己獨立的鎖狀態，不同線程之間的 level 的 constraint 是相互獨立的。
+
+透過這種設計, 我們可以確保在同一個 thread 內, 資源的獲取順序是正確的, 不會出現死鎖的問題。
 
 ## DeletingService / Deep Clean
 
