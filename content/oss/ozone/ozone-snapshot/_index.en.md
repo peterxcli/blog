@@ -4,7 +4,7 @@ summary: ""
 description: ""
 date: 2025-07-07T17:17:38+08:00
 slug: "ozone-snapshot"
-tags: ["ozone", "oss"]
+tags: ["ozone", "ozone-snapshot"]
 externalUrl: "/en/oss/ozone/ozone-snapshot/"
 # series: ["Documentation"]
 # series_order: 9
@@ -15,4 +15,4 @@ cascade:
 draft: false
 ---
 
-Ozone Snapshot release notes.
+Ozone Snapshot related notes.

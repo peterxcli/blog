@@ -4,7 +4,7 @@ summary: "使用 in-memory 資料庫、Redis 串流和 PostgreSQL 實現 96,000 
 description: "使用 in-memory 資料庫、Redis 串流和 PostgreSQL 實現 96,000 QPS 的廣告管理系統，具備複製、自訂索引和容錯機制。"
 date: 2024-04-15T13:18:02+08:00
 slug: "ad-server"
-tags: ["blog","zh-tw"]
+tags: ["backend"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

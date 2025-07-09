@@ -4,7 +4,7 @@ summary: "2024 成大單車節網站後端開發"
 description: "2024 成大單車節網站後端開發"
 date: 2024-03-01T13:54:54+08:00
 slug: "bikefest-2024-backend"
-tags: ["blog","zh-tw"]
+tags: ["backend"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

@@ -1,10 +1,10 @@
 ---
-title: "開源軟體"
+title: "Ozone"
 summary: ""
 description: ""
 date: 2025-03-19T17:17:38+08:00
-slug: "oss"
-tags: ["oss"]
+slug: "ozone"
+tags: ["oss", "ozone"]
 externalUrl: "/zh-tw/oss/ozone/"
 # series: ["Documentation"]
 # series_order: 9

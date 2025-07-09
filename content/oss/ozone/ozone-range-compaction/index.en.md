@@ -4,7 +4,7 @@ summary: "SST Statistics-Based Intelligent RocksDB Compaction Optimization for A
 description: "SST Statistics-Based Intelligent RocksDB Compaction Optimization for Apache Ozone"
 date: 2025-06-10T17:17:38+08:00
 slug: "range-compaction"
-tags: ["blog","en", "ozone", "oss"]
+tags: ["ozone", "rocksdb", "compaction"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

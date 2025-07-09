@@ -4,7 +4,7 @@ summary: "如何成為 Open Source Committer (Apache Ozone) 大學生 15 周心�
 description: "如何成為 Open Source Committer (Apache Ozone) 大學生 15 周心得分享"
 date: 2025-05-14T17:17:38+08:00
 slug: "becoming-an-ozone-committer"
-tags: ["blog","zh-tw", "ozone", "oss"]
+tags: ["ozone", "oss", "apache"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

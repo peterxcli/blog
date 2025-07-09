@@ -4,7 +4,7 @@ summary: "A high-performance advertisement management system achieving 96,000 QP
 description: ""
 date: 2024-04-15T13:18:02+08:00
 slug: "ad-server"
-tags: ["blog","en"]
+tags: ["backend"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

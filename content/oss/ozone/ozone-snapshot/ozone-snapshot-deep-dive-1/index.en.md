@@ -4,7 +4,7 @@ summary: "Deep dive into Apache Ozone Snapshot's Deep Clean mechanism and Reclai
 description: "Deep dive into Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim data resources under snapshots, and explore the engineering challenges behind RocksDB and snapshot chain"
 date: 2025-07-07T17:17:38+08:00
 slug: "ozone-snapshot-deep-dive-1"
-tags: ["ozone", "oss", "blog"]
+tags: ["ozone", "ozone-snapshot"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:
