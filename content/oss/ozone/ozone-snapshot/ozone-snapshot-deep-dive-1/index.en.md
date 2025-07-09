@@ -247,7 +247,7 @@ public BackgroundTaskQueue getTasks() {
 ### KeyDeletingService
 
 就是遍歷 snapshotRenamedTable 和 deletedTable, 然後用 [reclaimable filter](#reclaimable-filter) 過濾出可以回收的 key, 然後再發送給 SCM 進行物理刪除。
-(SCM 是 Storage Container Manager 的縮寫, 是所有 Data Nodes 的老大, 然後 Data Nodeㄋ 上儲存著一堆 data blocks, 也就是真實的檔案內容, 並且一群連續得 data blocks 會再組成一個叫 Container 的單位, 不是那個 Linux Container..。 總之想了解這塊的話也可以留言叫我寫一篇介紹那部分的文章ㄏㄏ)
+(SCM 是 Storage Container Manager 的縮寫, 是所有 Data Nodes 的老大, 然後 Data Nodes 上儲存著一堆 data blocks, 也就是真實的檔案內容, 並且一群連續得 data blocks 會再組成一個叫 Container 的單位, 不是那個 Linux Container..。 總之想了解這塊的話也可以留言叫我寫一篇介紹那部分的文章ㄏㄏ)
 
 1. 遍歷 snapshotRenamedTable 和 deletedTable, 然後用 reclaimable filter 過濾出可以回收的 key：
 
@@ -344,7 +344,7 @@ private Optional<PurgePathRequest> prepareDeleteDirRequest(
 Ozone 裡在刪除 key 或 directory 時, 不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 中, 然後會有 `DeletingService` 會在背景定期批次的把這些被刪除的 key 告訴 SCM 去刪除哪些 data node 上的 block。
 (SCM 是 Storage Container Manager 的縮寫, 是所有 Data Nodes 的老大)
 
-因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 AOS 上的刪除造成該 key1 在 datanode 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
+因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 AOS 上的刪除造成該 key1 在 Data Node 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
 
 所以 DeletingService 在提交給 SCM 批次刪除的同時, 不能盲目的亂刪亂給, 需要 **Snapshot-Aware**
 
