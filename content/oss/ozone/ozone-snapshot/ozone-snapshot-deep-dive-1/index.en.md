@@ -1,5 +1,5 @@
 ---
-title: "Ozone Snapshot Deep Dive 1 - Deep Clean & Snapshot Reclaimable Filter"
+title: "Ozone Snapshot Deep Dive 1 - Snapshot Deep Clean & Reclaimable Filter"
 summary: "Deep dive into Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim data resources under snapshots"
 description: "Deep dive into Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim data resources under snapshots"
 date: 2025-07-07T17:17:38+08:00
@@ -16,11 +16,11 @@ draft: false
 
 ## 前言
 
-在現代大規模物件儲存系統中，「快照（Snapshot）」功能已成為資料保護、異地備援、版本回溯與合規性需求的核心技術。Apache Ozone 作為 Hadoop 生態圈中專為 PB 級規模設計的物件儲存系統，其 Snapshot 設計不僅強調一致性與高效能，更深入結合底層 RocksDB 的機制來最佳化儲存成本與回收效率。
+在 Ozone 裡，Snapshot 不只是把資料凍結下來而已。為了確保使用者可以還原歷史狀態、支援備份與異地複製等需求，我們必須做到「快照裡的東西能讀、不該被誤刪、但又不能一直佔著空間不放」。
 
-然而，Snapshot 並不只是單純的「資料凍結」。如何安全地回收已刪除資料（Deep Clean），又能確保歷史快照可供查詢？如何在回收時避免誤刪仍被快照參照的物件？這些挑戰背後涉及到複雜的 metadata 管理、reference counting 與 snapshot chain 算法。
+這篇文章會從工程角度來看 Ozone Snapshot 是怎麼實作 Deep Clean：什麼資料可以被刪、哪些要留下？怎麼在 RocksDB Checkpoint 建好之後安全回收 deleted keys？Reclaimable Filter 怎麼幫忙做判斷？Deletion Service 怎麼針對每個 snapshot 一個個清？整個流程怎麼確保 snapshot 間的參照不會搞砸？
 
-本系列文章將深入剖析 Ozone Snapshot 的實作原理與各種細節。本篇聚焦於 Deep Clean 機制，以及如何透過「Reclaimable Filter」安全且有效地判斷哪些資源可以釋放，揭開 Snapshot 空間回收背後的工程設計與挑戰。希望能幫助你從底層真正理解 Ozone 如何實現可靠且高效的 Snapshot 管理。
+希望這篇可以讓你更清楚 Ozone Snapshot 背後怎麼動起來的，而不是只停在「有 snapshot 可以用」這種層次。
 
 ## Snapshot 可以做什麼
 
@@ -42,7 +42,7 @@ draft: false
 
 Ozone Snapshot 的實作主要依賴 RocksDB 的 Checkpoint 功能。
 
-然後 RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它的核心原理是：在不複製資料的情況下，快速產生一份資料庫當前狀態的「一致性 Snapshot 」。這個 Snapshot 本質上是一個新的資料目錄，裡面大多數檔案（如 SST 檔案）都是透過「硬連結（hard link）」指向原本的資料檔案，因此**建立速度極快且不佔用額外空間**。
+然後 RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它的核心原理是：在不複製資料的情況下，快速產生一份資料庫當前狀態的「一致性 Snapshot 」。這個 Snapshot 本質上是一個新的資料目錄，裡面大多數檔案（如 SST 檔案）都是透過 hard link 指向原本的 SST Files，因此**建立速度極快且不佔用額外空間**。
 
 不過這種 hard link 的機制也會有限制, 像是大部分的 filesystem 最多能對一個檔案建立 65535 個 hard link
 
@@ -433,7 +433,7 @@ public class ReclaimableRenameEntryFilter extends ReclaimableFilter<String> {
 
 ## 結語
 
-Ozone Snapshot 的 Deep Clean 與 Reclaimable Filter 機制，展示了在物件儲存系統下如何平衡資料安全、查詢一致性與儲存效率。從 key、directory 到 rename entry，每一種資源的回收判斷都必須仔細檢查 snapshot chain，確保在空間釋放的同時，不會影響到任何仍被快照參照的歷史資料。這套 snapshot-aware 的回收機制，為 Ozone 提供了靈活又可靠的版本管理基礎，也大幅降低了長期 snapshot 運作下的儲存壓力。
+這篇文章主要介紹了 Ozone Snapshot 的 Deep Clean 跟 Reclaimable Filter 怎麼運作：從 deletedTable / deletedDirectoryTable 的資料怎麼挑、怎麼判斷哪些 key 可以刪、到 DeletingService 怎麼配合 snapshot chain 一個個清、最後再加上 snapshot 的 exclusive size 統計。
 
 但 Deep Clean 只是 Ozone Snapshot 管理中的一環, 下一篇 **Ozone Snapshot 解析 2 - Snapshot Deleting Service & SST Files Filtering & Snapshot Diff** 會探討怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases, 還有最重要的主角- Snapshot Diff - 是怎麼克服 compaction churn 並計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
 
