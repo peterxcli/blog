@@ -1,7 +1,7 @@
 ---
 title: "Ozone Snapshot 解析 1 - Deep Clean & Snapshot Reclaimable Filter"
-summary: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源，並探討底層 RocksDB 與 snapshot chain 的工程挑戰"
-description: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源，並探討底層 RocksDB 與 snapshot chain 的工程挑戰"
+summary: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源"
+description: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源"
 date: 2025-07-07T17:17:38+08:00
 slug: "ozone-snapshot-deep-dive-1"
 tags: ["ozone", "ozone-snapshot"]
