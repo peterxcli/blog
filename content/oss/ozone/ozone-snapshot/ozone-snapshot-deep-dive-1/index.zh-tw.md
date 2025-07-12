@@ -1,7 +1,7 @@
 ---
 title: "Ozone Snapshot 解析 1 - Snapshot Deep Clean & Reclaimable Filter"
-summary: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源"
-description: "深入解析 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何安全高效地回收快照下的資料資源"
+summary: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
+description: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
 date: 2025-07-07T17:17:38+08:00
 slug: "ozone-snapshot-deep-dive-1"
 tags: ["ozone", "ozone-snapshot"]
@@ -13,20 +13,49 @@ cascade:
   hideFeatureImage: false
 draft: false
 ---
-
 ## 前言
 
-在 Ozone 裡，Snapshot 不只是把資料凍結下來而已。為了確保使用者可以還原歷史狀態、支援備份與異地複製等需求，我們必須做到「快照裡的東西能讀、不該被誤刪、但又不能一直佔著空間不放」。
+[Apache Ozone](https://ozone.apache.org/) 是個 [open source](https://github.com/apache/ozone) 的 distributed file system
+### Ozone Basic
 
-這篇文章會從工程角度來看 Ozone Snapshot 是怎麼實作 Deep Clean：什麼資料可以被刪、哪些要留下？怎麼在 RocksDB Checkpoint 建好之後安全回收 deleted keys？Reclaimable Filter 怎麼幫忙做判斷？Deletion Service 怎麼針對每個 snapshot 一個個清？整個流程怎麼確保 snapshot 間的參照不會搞砸？
+Ozone 是透過他的其中一個叫 Ozone Manager 管理檔案/object 的 metadata 的。
+對於客戶端來說, 流程就是, 
+1. 跟 Ozone Manager query `red-sister.png`, 
+2. 客戶端就會收到回覆說這個檔案的內容是由哪些 blocks 組成
+3. 客戶端會問 Storage Container Manager 說這些 blocks 在哪些 Data Nodes 身上
+4. 然後客戶端知道要往哪些 Data Nodes 讀之後就根據檔案順序開始跟他們請求檔案內容
+5. 完美
 
-希望這篇可以讓你更清楚 Ozone Snapshot 背後怎麼動起來的，而不是只停在「有 snapshot 可以用」這種層次。
+**Storage Container Manager** aka. SCM, 是所有 Data Nodes 的老大, 會負責叫 Data Nodes 們幹活, 包括刪除 data blocks。
+至於 **Data Node** 上則是儲存著一堆 data blocks, 也就是真實的檔案內容, 並且一群連續的 data blocks 會再組成一個叫 Container 的單位, 不是那個 Linux Container..。 但那不是今天的重點, 總之想了解這塊的話也可以留言叫我寫一篇介紹那部分的文章ㄏㄏ
 
-## Snapshot 可以做什麼
+哈哈我們短短幾句就講完 Ozone 的全部架構了, **Ozone Manager** 管 file/key/directory 的 metadata(name, size, data blocks location), **Data Node** 上散佈著真實的檔案資料/內容, 然後 **Storage Container Manager** 是所有 Data Node 的老大
+
+### Snapshot Brief
+
+Ozone Snapshot 是個在 Ozone Manager 上很 powerful 的功能, 如其名, 就是把某個瞬間的 file metadata 的長相拍下來。並且可以讓你在任意 Snapshot 裡 query metadata, 更強的是你可以指定任意兩個 Snapshot, 叫 Ozone 回答你這兩個 snapshot 之間有哪些變更, 讓我們可以透過 Ozone Snapshot 實現 Cross-Region Replication 等功能
+
+Ozone Snapshot 的實作主要依賴 RocksDB 的 Checkpoint 功能。
+RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它的核心原理是：在不複製資料的情況下，快速產生一份資料庫當前狀態的「一致性 Snapshot 」。這個 Snapshot 本質上是一個新的資料目錄，裡面大多數檔案都是透過 hard link 指向原本的 SST Files，因此**建立速度極快且不佔用額外空間**。
+
+### The Challenge
+
+誒聽起來 Ozone Snapshot 感覺不難實現啊？ 誒但是沒免費午餐, 要支援 Snapshot 也讓系統帶來額外的複雜度及問題, 現代問題也會需要一些現代手段來處理。
+
+因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 [AOS](#AOS) 上的刪除造成該 key1 在 Data Node 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1 時, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
+
+這時候就要談到 Ozone 是怎麼處理 Ozone Manager 上 deleted key/file/directory record 的:
+Ozone 在刪除 key/file/directory 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 這兩個 RocksDB column family aka Table 中, 然後會由另外的 Background Service - `KeyDeletingService` & `DirectoryDeletingService` 去從那些儲存 deleted key/file/dir 的 table 中 pick up 一些出來然後去叫 **Storage Container Manager** 把對應的 data blocks 刪掉
+
+**這種機制引出兩個問題要解決, 也是這篇文章的重點**：
+1. Snapshot 裡面的 `deletedTable/deletedDirectoryTable` 裡的東西還沒被清乾淨!! DataNode 還存著一堆對於客戶端來說是看不見的 data blocks... 這部分對應到 [DeletingService / Deep Clean](#deletingservice--deep-clean)
+2. DeletingService 在看要提交給 SCM 要批次刪除的 data blocks 時, 不能盲目的亂給, 需要 **Snapshot-Aware**, 需要**過濾 snapshot 裡可見的 key/file** 他們所擁有的 data blocks, 避免他們被刪掉, 就像過濾雜質一樣。 這部分對應到 [Reclaimable Filter](#reclaimable-filter)
+
+## Snapshot Feature 的詳細介紹
 
 官網有教你怎麼使用 Ozone Snapshot: [Ozone Snapshot](https://ozone.apache.org/docs/edge/feature/snapshot.html)
 
-有好幾篇詳細說明 ozone snapshot 可以做什麼的文章：
+然後還有好幾篇詳細說明 ozone snapshot 可以做什麼的文章, 有興趣可以點進去看看：
 - [Introducing Apache Ozone Snapshots](https://medium.com/@prashantpogde/introducing-apache-ozone-snapshots-af82e976142f)：介紹 Ozone, Ozone Snapshot 的用處, 還提到 Clodera 自己出的 Replication Manager 可以利用 Ozone Snapshot 來做多 cluster 的資料 replication
 - [Object Stores: The Case for Snapshots vs Object Versioning](https://medium.com/@prashantpogde/object-stores-the-case-for-snapshots-vs-object-versioning-d0b292742005)：比較 Ozone Snapshot 與傳統"物件版本管理"(Object Versioning)的不同。物件版本管理雖然能保留每個物件的多個版本，方便恢復誤刪或回溯，但會帶來 Namespace Explosion、版本垃圾回收(GC for Versions)、參照一致性(Referential Integrity and Consistency
 )等管理難題，尤其在 Application 彼此之間有依賴關係時容易出現狀態不一致。Ozone 的 Snapshot 功能則針對整個物件群組（如一個 bucket）在特定時間點做應用一致性、只讀的 Snapshot ，避免版本數量過多、維護困難的問題，同時天然保障資料完整性和應用一致性。這讓應用程式在需要還原歷史狀態時更可靠、簡單，並大幅降低管理負擔。
@@ -36,15 +65,8 @@ draft: false
 - [Apache Ozone Snapshots: Addressing Different Use Cases](https://medium.com/@prashantpogde/apache-ozone-snapshots-addressing-different-use-cases-ba6b98f8b94d)：各種 Snapshot Use Case, 包括：**Data Protection**(Failed Transactions, Ransomware, Malware State), **Time Travel**, **Data Replication and Remote Replication**, **Archival and Compliance**, **Incremental Analytics** and **Generative AI**(嗯？)
 - [Apache Ozone Using the Snapshot Feature](https://medium.com/@prashantpogde/apache-ozone-using-the-snapshot-feature-7ced5f15b81a)：教你怎麼在 Ozone 裡 CRUD Snapshot, Snapshot Rename 還有 Snapshot Diff
 
-![Snapshot Space Efficiency](snapshot-space-efficiency.png)
+![](18edb46bbe7aa8743edfe67b504464ab.png)
 
-## Ozone Snapshot 與 RocksDB Checkpoint
-
-Ozone Snapshot 的實作主要依賴 RocksDB 的 Checkpoint 功能。
-
-然後 RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它的核心原理是：在不複製資料的情況下，快速產生一份資料庫當前狀態的「一致性 Snapshot 」。這個 Snapshot 本質上是一個新的資料目錄，裡面大多數檔案（如 SST 檔案）都是透過 hard link 指向原本的 SST Files，因此**建立速度極快且不佔用額外空間**。
-
-不過這種 hard link 的機制也會有限制, 像是大部分的 filesystem 最多能對一個檔案建立 65535 個 hard link
 
 ## Metadata of Snapshot
 
@@ -89,43 +111,24 @@ public class SnapshotChainManager {
 
 [`SnapshotChainInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/SnapshotChainInfo.java) 裡有 `previousSnapshotId` 和 `nextSnapshotId` 來維護 snapshot chain 的雙向連結。
 
-![Snapshot Chain](snapshot-chain.png)
-
-## AOS/AFS
-
-AOS 是 Active Object Store 的縮寫, AFS 是 Active File System 的縮寫, 其實就是指正常 RocksDB 的 DB instance, 會有這個名詞主要是和 Snapshot 做出區分。
-
-## Snapshot 建立流程詳解
+![](00c95e1d7b5045b5cb0b67cac26e057f.png)
+## Snapshot 建立流程
 
 ### 建立前的驗證
 
-```java
-public OMRequest preExecute(OzoneManager ozoneManager) {
-    // 1. 驗證 Snapshot 名稱合法性
-    validateSnapshotName(snapshotName);
-    
-    // 2. 檢查使用者權限（只有 bucket owner 和 admin 可以建立）
-    checkAcls(ozoneManager, volumeName, bucketName, userName);
-    
-    // 3. 檢查 Snapshot 數量限制
-    if (getSnapshotCount() >= maxSnapshotLimit) {
-        throw new OMException("Snapshot limit exceeded");
-    }
-    
-    // 4. 生成唯一的 snapshot ID
-    UUID snapshotId = UUID.randomUUID();
-}
-```
+1. 驗證 Snapshot 名稱合法性
+2. 檢查使用者權限（只有 bucket owner 和 admin 可以建立）
+3. 檢查 Snapshot 數量限制
+4. 產生 snapshot ID (UUID)
 
 ### RocksDB Checkpoint 建立
 
-![Snapshot Creation](snapshot-checkpoint.png)
+![](2202133755dd8167386a8e30633f84cb.png)
 
 這是 Snapshot 建立的核心步驟，利用 RocksDB 的 checkpoint 功能：
 
 
-1. 強制刷新 WAL 和 MemTable 到磁碟
-
+1. manually flush WAL 和 MemTable 到磁碟
     因為 Checkpoint 是透過對當前 SST Files 建立 hard link 來達成，所以需要先強制刷新 WAL 和 MemTable 到磁碟，確保 SST Files 是有包含最新的資料。
 
 ```java
@@ -136,9 +139,8 @@ db.flush();
 checkpoint.createCheckpoint(checkpointPath);
 ``` 
 
-    
-2. 清理 Snapshot 範圍內的已刪除資料
 
+2. 清理 Snapshot 範圍內的已刪除資料
     Ozone 在刪除 key or file 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 中, 在建立 Snapshot 時, 因為 `deletedTable` 和 `deletedDirectoryTable` 的內容都已經被紀錄到該 snapshot 中, 所以可以把這兩個 table 都清空, 這也讓後續的 DeletingService/ReclaimableFilter 可以更輕鬆的處理 GC/Deep Clean, 因為每個 snapshot 的 `deletedTable`/`deletedDirectoryTable` 的內容一定不會重複。
 
 ```java
@@ -204,7 +206,26 @@ lock.acquireWriteLock(BUCKET_LOCK, "volume1", "bucket1");  // 應該 throw excep
 
 所以我們需要 **Level Lock** 來根據資源的優先級（priority）來決定同一線程內哪些資源可以成功獲取鎖。Ozone 定義的資源優先級：
 
-{{< codeimporter url="https://raw.githubusercontent.com/apache/ozone/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/lock/OzoneManagerLock.java" type="java" startLine="699" endLine="716" >}}
+```java
+// For S3 Bucket need to allow only for S3, that should be means only 1.
+S3_BUCKET_LOCK((byte) 0, "S3_BUCKET_LOCK"), // = 1
+
+// For volume need to allow both s3 bucket and volume. 01 + 10 = 11 (3)
+VOLUME_LOCK((byte) 1, "VOLUME_LOCK"), // = 2
+
+// For bucket we need to allow both s3 bucket, volume and bucket. Which
+// is equal to 100 + 010 + 001 = 111 = 4 + 2 + 1 = 7
+BUCKET_LOCK((byte) 2, "BUCKET_LOCK"), // = 4
+
+// For user we need to allow s3 bucket, volume, bucket and user lock.
+// Which is 8  4 + 2 + 1 = 15
+USER_LOCK((byte) 3, "USER_LOCK"), // 15
+
+S3_SECRET_LOCK((byte) 4, "S3_SECRET_LOCK"), // 31
+KEY_PATH_LOCK((byte) 5, "KEY_PATH_LOCK"), //63
+PREFIX_LOCK((byte) 6, "PREFIX_LOCK"), //127
+SNAPSHOT_LOCK((byte) 7, "SNAPSHOT_LOCK"); // = 255
+```
 
 Level Lock 使用 **bit mask** 實作，每個線程都有自己獨立的鎖狀態，不同線程之間的 level 的 constraint 是相互獨立的。
 
@@ -247,7 +268,7 @@ public BackgroundTaskQueue getTasks() {
 ### KeyDeletingService
 
 就是遍歷 snapshotRenamedTable 和 deletedTable, 然後用 [reclaimable filter](#reclaimable-filter) 過濾出可以回收的 key, 然後再發送給 SCM 進行物理刪除。
-(SCM 是 Storage Container Manager 的縮寫, 是所有 Data Nodes 的老大, 然後 Data Nodes 上儲存著一堆 data blocks, 也就是真實的檔案內容, 並且一群連續得 data blocks 會再組成一個叫 Container 的單位, 不是那個 Linux Container..。 總之想了解這塊的話也可以留言叫我寫一篇介紹那部分的文章ㄏㄏ)
+
 
 1. 遍歷 snapshotRenamedTable 和 deletedTable, 然後用 reclaimable filter 過濾出可以回收的 key：
 
@@ -263,26 +284,26 @@ PendingKeysDeletion pendingKeysDeletion = currentSnapshotInfo == null
     ? keyManager.getPendingDeletionKeys(reclaimableKeyFilter, remainNum)
     : keyManager.getPendingDeletionKeys(volume, bucket, null, reclaimableKeyFilter, remainNum);
 ```
+
 可以注意到這裡有個 `remainNum` 的參數，這是為了避免一次過濾太多 key, 拿來做 pagination 的。
 
-2. 發送給 SCM 進行物理刪除：
+2. 發送給 SCM 進行物理刪除 (跟 SCM 說可以把哪些 data blocks 真的刪掉, 他刪完之後整個檔案(metadata + data/content 才是真正意義上的從 ozone cluster 裡消失))：
+	1. 跟 SCM 說哪些 blocks 可以被刪除
+	2. SCM 回報成功後, 再發送 purge keys request 給 OM, 然後 keys 才會真正從 OM DB 中刪除
 
 ```java
-  Pair<Integer, Boolean> processKeyDeletes(List<BlockGroup> keyBlocksList,
-      Map<String, RepeatedOmKeyInfo> keysToModify, List<String> renameEntries,
-      String snapTableKey, UUID expectedPreviousSnapshotId) throws IOException {
-    ...
-    // 跟 SCM 說哪些 blocks 可以被刪除
-    List<DeleteBlockGroupResult> blockDeletionResults = scmClient.deleteKeyBlocks(keyBlocksList);
-    ...
-    // SCM 回報成功後, 再發送 purge keys request 給 OM, 然後 keys 才會真正從 OM DB 中消失
-    purgeResult = submitPurgeKeysRequest(blockDeletionResults,
-          keysToModify, renameEntries, snapTableKey, expectedPreviousSnapshotId);
-    ...
-    return purgeResult;
-  }
+Pair<Integer, Boolean> processKeyDeletes(List<BlockGroup> keyBlocksList, Map<String, RepeatedOmKeyInfo> keysToModify, List<String> renameEntries, String snapTableKey, UUID expectedPreviousSnapshotId) throws IOException {
+	...
+	// 跟 SCM 說哪些 blocks 可以被刪除
+	List<DeleteBlockGroupResult> blockDeletionResults = scmClient.deleteKeyBlocks(keyBlocksList);
+	...
+	// SCM 回報成功後, 再發送 purge keys request 給 OM, 然後 keys 才會真正從 OM DB 中消失
+	purgeResult = submitPurgeKeysRequest(blockDeletionResults,
+	     keysToModify, renameEntries, snapTableKey, expectedPreviousSnapshotId);
+	...
+	return purgeResult;
+}
 ```
-
 
 3. 當一個 snapshot 的所有 key 都被安全回收後, 更新該 snapshot 的 deep clean 標記：
 
@@ -300,59 +321,27 @@ submitSetSnapshotRequests(setSnapshotPropertyRequests);
 
 ### DirectoryDeletingService
 
-`DirectoryDeletingService` 則負責回收已刪除的目錄（以及其下的所有子目錄與檔案）。它的運作方式與 `KeyDeletingService` 類似, 多了遞迴處理目錄樹的邏輯
+`DirectoryDeletingService` 則負責回收已刪除的目錄（以及其下的所有子目錄與檔案）。它的運作方式與 `KeyDeletingService` 類似, 只是多了遞迴處理目錄樹的邏輯
 
 遞迴處理目錄樹的邏輯：
 
-```java
-private Optional<PurgePathRequest> prepareDeleteDirRequest(
-    OmKeyInfo pendingDeletedDirInfo, String delDirName, boolean purgeDir,
-    List<Pair<String, OmKeyInfo>> subDirList,
-    KeyManager keyManager,
-    CheckedFunction<Table.KeyValue<String, OmKeyInfo>, Boolean, IOException> reclaimableFileFilter,
-    long remainingBufLimit) throws IOException {
-    
-    // step-1: 取得該目錄下的所有子目錄
-    DeleteKeysResult subDirDeleteResult =
-        keyManager.getPendingDeletionSubDirs(volumeId, bucketId,
-            pendingDeletedDirInfo, keyInfo -> true, remainingBufLimit);
-    List<OmKeyInfo> subDirs = subDirDeleteResult.getKeysToDelete();
-    
-    // 將子目錄加入待處理清單，以便下次迭代處理, 再次展開處理
-    for (OmKeyInfo dirInfo : subDirs) {
-        String ozoneDeleteKey = omMetadataManager.getOzoneDeletePathKey(
-            dirInfo.getObjectID(), ozoneDbKey);
-        subDirList.add(Pair.of(ozoneDeleteKey, dirInfo));
-    }
-    
-    // step-2: 取得該目錄下的所有子檔案
-    DeleteKeysResult subFileDeleteResult =
-        keyManager.getPendingDeletionSubFiles(volumeId, bucketId,
-            pendingDeletedDirInfo, keyInfo -> purgeDir || reclaimableFileFilter.apply(keyInfo), remainingBufLimit);
-    List<OmKeyInfo> subFiles = subFileDeleteResult.getKeysToDelete();
-    
-    // step-3: 只有當子目錄和子檔案都處理完畢時，才刪除父目錄
-    String purgeDeletedDir = purgeDir && subDirDeleteResult.isProcessedKeys() &&
-        subFileDeleteResult.isProcessedKeys() ? delDirName : null;
-}
-```
+1. 取得該目錄下的所有子目錄
+2. 將子目錄加入待處理清單，以便下次迭代處理, 再次展開處理
+3. 取得該目錄下的所有子檔案
+4. 只有當子目錄和子檔案都處理完畢時，才刪除父目錄
 
 ## Reclaimable Filter
 
 ### 什麼是 Reclaimable Filter？
 
-Ozone 裡在刪除 key 或 directory 時, 不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 中, 然後會有 `DeletingService` 會在背景定期批次的把這些被刪除的 key 告訴 SCM 去刪除哪些 data node 上的 block。
-(SCM 是 Storage Container Manager 的縮寫, 是所有 Data Nodes 的老大)
-
-因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 AOS 上的刪除造成該 key1 在 Data Node 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
-
-所以 DeletingService 在提交給 SCM 批次刪除的同時, 不能盲目的亂刪亂給, 需要 **Snapshot-Aware**
+如同前言裡提到：
+> DeletingService 在看要提交給 SCM 要批次刪除的 data blocks 時, 不能盲目的亂給, 需要 **Snapshot-Aware**, 需要**過濾 snapshot 裡可見的 key/file** 他們所擁有的 data blocks, 避免他們被刪掉, 就像過濾雜質一樣
 
 Reclaimable Filter 正是為了這個目的而設計的, 它會在 DeletingService 提交給 SCM 批次刪除的同時, 去過濾哪些 key 或 directory 可以被回收。
 
 ~~其實原本沒有 Reclaimable Filter 這個東西, 只是這邊的 code 實在太醜了, 所以才用 Reclaimable Filter 去把 DeletingService Snapshot-Aware 的邏輯們封裝起來~~
 
-![Reclaimable Filter](snapshot-aware-key-reclaimation.png)
+![](b194b18f795d00b67855c5994a31a6ec.png)
 
 ### ReclaimableFilter Abstract Class
 
@@ -434,16 +423,18 @@ public class ReclaimableRenameEntryFilter extends ReclaimableFilter<String> {
 
 ## 結語
 
-這篇文章主要介紹了 Ozone Snapshot 的 Deep Clean 跟 Reclaimable Filter 怎麼運作：從 deletedTable / deletedDirectoryTable 的資料怎麼挑、怎麼判斷哪些 key 可以刪、到 DeletingService 怎麼配合 snapshot chain 一個個清、最後再加上 snapshot 的 exclusive size 統計。
-
-但 Deep Clean 只是 Ozone Snapshot 管理中的一環, 下一篇 **Ozone Snapshot 解析 2 - Snapshot Deleting Service & SST Files Filtering & Snapshot Diff** 會探討怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases, 還有最重要的主角- Snapshot Diff - 是怎麼克服 compaction churn 並計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
+Deep Clean 只是 Ozone Snapshot 管理中的一小部分, 下一篇 **Ozone Snapshot 解析 2 - Snapshot Deleting Service & SST Files Filtering & Snapshot Diff** 會探討怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases, 還有最重要的主角- Snapshot Diff - 是怎麼克服 compaction churn 並計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
 
 如果寫得出來而且塞得下的話...
 
-
 ## Reference
-
 - [Snapshots for an Object Store](https://www.youtube.com/watch?v=7_FrTClCUag)
 - [Improving Snapshot Scale](https://docs.google.com/document/d/1Xw1AtKAlDm97UiLXd8egjeLIaYq4rpClv1xD7x5Xvww/edit?tab=t.0#heading=h.c9lecgual3zk)
 - [Ozone Snapshot Deletion & Garbage Collection](https://issues.apache.org/jira/browse/HDDS-7730)
 - [Design: Ozone Snapshot Deletion Garbage Collection based on key deletedTable](https://fossil-i.notion.site/Design-Ozone-Snapshot-Deletion-Garbage-Collection-based-on-key-deletedTable-2a624480dc7c4bc3ad608cbf86a25541)
+
+## Appendix
+
+### AOS/AFS
+
+AOS 是 Active Object Store 的縮寫, AFS 是 Active File System 的縮寫, 其實就是指正常 RocksDB 的 DB instance, 會有這個名詞主要是和 Snapshot 做出區分。
