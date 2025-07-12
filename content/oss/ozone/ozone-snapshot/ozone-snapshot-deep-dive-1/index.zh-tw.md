@@ -42,7 +42,7 @@ RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它
 
 誒聽起來 Ozone Snapshot 感覺不難實現啊？ 誒但是沒免費午餐, 要支援 Snapshot 也讓系統帶來額外的複雜度及問題, 現代問題也會需要一些現代手段來處理。
 
-因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 [AOS](#AOS) 上的刪除造成該 key1 在 Data Node 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1 時, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
+因為 Snapshot 允許使用者直接讀取 snapshot 裡的 key, 所以假設某個 snapshot 裡面的 key1 還可以被讀到, 但 [AOS](#aosafs) 上的刪除造成該 key1 在 Data Node 上的資料被刪除, 這樣會讓使用者在讀取該 snapshot 的 key1 時, 發現根本讀不到他的 data blocks 的資料, 很不直覺吧?
 
 這時候就要談到 Ozone 是怎麼處理 Ozone Manager 上 deleted key/file/directory record 的:
 Ozone 在刪除 key/file/directory 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 這兩個 RocksDB column family aka Table 中, 然後會由另外的 Background Service - `KeyDeletingService` & `DirectoryDeletingService` 去從那些儲存 deleted key/file/dir 的 table 中 pick up 一些出來然後去叫 **Storage Container Manager** 把對應的 data blocks 刪掉
