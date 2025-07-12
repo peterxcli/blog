@@ -323,12 +323,24 @@ submitSetSnapshotRequests(setSnapshotPropertyRequests);
 
 `DirectoryDeletingService` 則負責回收已刪除的目錄（以及其下的所有子目錄與檔案）。它的運作方式與 `KeyDeletingService` 類似, 只是多了遞迴處理目錄樹的邏輯
 
-遞迴處理目錄樹的邏輯：
+在 Ozone Manager（OM）的 FSO （File System Optimized）模式下，
+file 與 directory 其實都被映射成 RocksDB 表中的樹狀結構。
+當使用者刪除一個目錄時，OM 先把「被刪目錄本身」寫入 DeletedDirectoryTable，
+而目錄底下的子檔案、子目錄並不會立即搬走—— 這留下了 orphan directory 的清理問題。
 
-1. 取得該目錄下的所有子目錄
-2. 將子目錄加入待處理清單，以便下次迭代處理, 再次展開處理
-3. 取得該目錄下的所有子檔案
-4. 只有當子目錄和子檔案都處理完畢時，才刪除父目錄
+`DirectoryDeletingService` 就是專門處理這批 orphan directory 的 background service：
+
+- **遞迴遍歷並刪除**：一路往下收斂到樹葉（子目錄、子檔案），
+然後再把「空目錄」本身刪掉。(這裡的空目錄指的是沒有任何子目錄或子檔案的目錄)
+- **與 Snapshot 相容**：確保**任何仍被快照引用**的節點都不會被提早清走。
+- **分批、限速**：然後也有 `ratisByteLimit` 來做 pagination.
+
+遞迴展開流程:
+1. 列出子目錄 → 重新放回 DeletedDirectoryTable
+    （等待下一輪處理，形成 BFS 式展開）
+2. 列出子檔案 → 放入 DeletedTable
+3. 若目前目錄已無任何子節點 →
+把「父目錄自身」也加進刪除的 list 裡，待會一起刪掉。
 
 ## Reclaimable Filter
 
@@ -353,7 +365,7 @@ Reclaimable Filter 正是為了這個目的而設計的, 它會在 DeletingServi
 
 `ReclaimableFilter` 已經幫我們打下很好的基礎了, 我們現在只需要針對每種資源去寫下對應的 reclaimable 邏輯即可。
 
-#### [ReclaimableKeyFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableKeyFilter.java)
+#### ReclaimableKeyFilter
 用於過濾可回收的檔案 key，需要檢查前兩個 snapshot：
 
 ```java
@@ -368,7 +380,7 @@ public class ReclaimableKeyFilter extends ReclaimableFilter<OmKeyInfo> {
 - 如果在前一個 snapshot 中找得到，則會進一步檢查「前前一個 snapshot」，以確認這個 key 是否只存在於前一個 snapshot，並將其大小計入前一個 snapshot 的 exclusive size 統計。
 
 
-#### [ReclaimableDirFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableDirFilter.java)
+#### ReclaimableDirFilter
 用於過濾可回收的目錄，只需要檢查前一個 snapshot：
 
 (Directory 是 Ozone 的其中一種 Object Layout - FileSystem Optimized 的其中一員, FSO layout 具有更高效的 rename, delete 的效能, 詳細可以參考 [Prefix based File System Optimization](https://ozone.apache.org/docs/edge/feature/prefixfso.html))
@@ -387,7 +399,7 @@ public class ReclaimableDirFilter extends ReclaimableFilter<OmKeyInfo> {
    - 如果查得到, 但 `objectID` 不同, 代表這個目錄在前一個 snapshot 中已經被覆蓋或變更, 也可以回收。
    - 只有當前一個 snapshot 中有相同 `objectID` 的目錄時, 才不能回收。
 
-#### [ReclaimableRenameEntryFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableRenameEntryFilter.java)
+#### ReclaimableRenameEntryFilter
 用來 filter reclaimable 的 snapshot rename entry
 
 - What is rename entry?

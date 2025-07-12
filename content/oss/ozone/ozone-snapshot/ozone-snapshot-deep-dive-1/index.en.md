@@ -322,12 +322,24 @@ This indicates that snapshot's keys have completed deep clean and space can be s
 
 `DirectoryDeletingService` is responsible for reclaiming deleted directories (and all subdirectories and files within). It works similarly to `KeyDeletingService`, but with additional logic for recursively processing directory trees.
 
-Logic for recursively processing directory trees:
+In Ozone Manager (OM)'s FSO (File System Optimized) mode,
+files and directories are actually mapped as tree structures in RocksDB tables.
+When a user deletes a directory, OM first writes the "deleted directory itself" to DeletedDirectoryTable,
+while the subdirectories and files underneath are not immediately moved away — this leaves the orphan directory cleanup problem.
 
-1. Get all subdirectories under the directory
-2. Add subdirectories to the pending list for processing in the next iteration
-3. Get all files under the directory
-4. Only delete the parent directory when both subdirectories and files have been processed
+`DirectoryDeletingService` is the background service specifically designed to handle these orphan directories:
+
+- **Recursive traversal and deletion**: Traverse down to the leaves (subdirectories, subfiles),
+then delete the "empty directory" itself. (Here empty directory means a directory with no subdirectories or subfiles)
+- **Snapshot compatible**: Ensures that **any nodes still referenced by snapshots** won't be cleaned up prematurely.
+- **Batched and rate-limited**: Also uses `ratisByteLimit` for pagination.
+
+Recursive expansion process:
+1. List subdirectories → Put them back into DeletedDirectoryTable
+    (Waiting for next round of processing, forming BFS-style expansion)
+2. List subfiles → Put them into DeletedTable
+3. If current directory has no child nodes →
+Add the "parent directory itself" to the deletion list, to be deleted together later.
 
 ## Reclaimable Filter
 
@@ -352,7 +364,7 @@ You can specify checking N snapshots before the current snapshot, and `Reclaimab
 
 `ReclaimableFilter` has laid a good foundation for us. Now we just need to write the corresponding reclaimable logic for each type of resource.
 
-#### [ReclaimableKeyFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableKeyFilter.java)
+#### ReclaimableKeyFilter
 Used to filter reclaimable file keys, needs to check the previous two snapshots:
 
 ```java
@@ -367,7 +379,7 @@ public class ReclaimableKeyFilter extends ReclaimableFilter<OmKeyInfo> {
 - If found in the previous snapshot, it will further check the "snapshot before the previous one" to confirm whether this key only exists in the previous snapshot, and count its size in the previous snapshot's exclusive size statistics.
 
 
-#### [ReclaimableDirFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableDirFilter.java)
+#### ReclaimableDirFilter
 Used to filter reclaimable directories, only needs to check the previous snapshot:
 
 (Directory is one of Ozone's Object Layouts - FileSystem Optimized. FSO layout has more efficient rename and delete performance. For details, see [Prefix based File System Optimization](https://ozone.apache.org/docs/edge/feature/prefixfso.html))
@@ -386,7 +398,7 @@ public class ReclaimableDirFilter extends ReclaimableFilter<OmKeyInfo> {
    - If found but with different `objectID`, it means the directory has been overwritten or changed in the previous snapshot and can also be reclaimed.
    - Only when the previous snapshot has a directory with the same `objectID` can it not be reclaimed.
 
-#### [ReclaimableRenameEntryFilter](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/snapshot/filter/ReclaimableRenameEntryFilter.java)
+#### ReclaimableRenameEntryFilter
 Used to filter reclaimable snapshot rename entries
 
 - What is rename entry?
