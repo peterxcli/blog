@@ -13,6 +13,20 @@ cascade:
   hideFeatureImage: false
 draft: false
 ---
+
+{{< alert icon="slack" >}}
+> [**OpenSource4You**](https://www.facebook.com/opensource4you) is an active community in Taiwan contributing to large-scale open source software
+
+> Starting from the following time and location, [chungen](https://www.linkedin.com/in/chung-en-lee-ab7995225/) and I will take turns hosting the **Ozone Chinese Meeting**
+
+> - **Time:** Every Monday 22:00-23:00 (Taiwan Time UTC+8) starting July 14th
+> - **Location (Virtual):** https://ozone.opensource4you.tw
+> - **Calendar:** https://calendar.opensource4you.tw
+
+> If you're interested in Ozone technical updates or contributing to Ozone itself
+> Welcome to join the Ozone meeting!
+{{< /alert >}}
+
 ## Introduction
 
 [Apache Ozone](https://ozone.apache.org/) is an [open source](https://github.com/apache/ozone) distributed file system

@@ -13,9 +13,24 @@ cascade:
   hideFeatureImage: false
 draft: false
 ---
+
+{{< alert icon="slack" >}}
+> [**源來是你**](https://www.facebook.com/opensource4you) 是在台灣積極貢獻大型開與軟體的社群
+
+> 接下來我會在以下時間地點跟 [chungen](https://www.linkedin.com/in/chung-en-lee-ab7995225/) 輪流主持 **Ozone 中文會議**
+
+> - **時間：** 7 月 14 日起每週一晚上 22:00-23:00 (台灣時區 UTC+8)
+> - **地點(Virtual):** https://ozone.opensource4you.tw
+> - **行事曆:** https://calendar.opensource4you.tw
+
+> 如果你也對 Ozone 的技術新知或對貢獻 Ozone 本身感興趣
+> 歡迎來 Ozone 會議共襄盛舉！
+{{< /alert >}}
+
 ## 前言
 
 [Apache Ozone](https://ozone.apache.org/) 是個 [open source](https://github.com/apache/ozone) 的 distributed file system
+
 ### Ozone Basic
 
 Ozone 是透過他的其中一個叫 Ozone Manager 管理檔案/object 的 metadata 的。
