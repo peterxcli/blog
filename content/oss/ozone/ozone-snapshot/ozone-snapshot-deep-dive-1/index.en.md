@@ -34,7 +34,7 @@ draft: false
 
 Ozone manages file/object metadata through one of its components called Ozone Manager.
 From the client's perspective, the process is:
-1. Query Ozone Manager for `red-sister.png`
+1. Query Ozone Manager for `red-uncle.png`
 2. The client receives a response indicating which blocks compose this file's content
 3. The client asks Storage Container Manager about the locations of these blocks on Data Nodes
 4. After knowing which Data Nodes to read from, the client requests file content according to the file sequence

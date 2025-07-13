@@ -35,7 +35,7 @@ draft: false
 
 Ozone 是透過他的其中一個叫 Ozone Manager 管理檔案/object 的 metadata 的。
 對於客戶端來說, 流程就是, 
-1. 跟 Ozone Manager query `red-sister.png`, 
+1. 跟 Ozone Manager query `red-uncle.png.png`,
 2. 客戶端就會收到回覆說這個檔案的內容是由哪些 blocks 組成
 3. 客戶端會問 Storage Container Manager 說這些 blocks 在哪些 Data Nodes 身上
 4. 然後客戶端知道要往哪些 Data Nodes 讀之後就根據檔案順序開始跟他們請求檔案內容
