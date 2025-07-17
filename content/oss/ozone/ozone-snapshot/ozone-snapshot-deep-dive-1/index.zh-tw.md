@@ -19,8 +19,8 @@ draft: false
 
 > 接下來我會在以下時間地點跟 [chungen](https://www.linkedin.com/in/chung-en-lee-ab7995225/) 輪流主持 **Ozone 中文會議**
 
-> - **時間：** 7 月 14 日起每週一晚上 22:00-23:00 (台灣時區 UTC+8)
-> - **地點(Virtual):** https://ozone.opensource4you.tw
+> - **時間：** 2025 年 7 月 14 日起每週一晚上 22:00-23:00 (台灣時區 UTC+8)
+> - **地點(Virtual):** https://opensource4you.tw/ozone/meeting
 > - **行事曆:** https://calendar.opensource4you.tw
 
 > 如果你也對 Ozone 的技術新知或對貢獻 Ozone 本身感興趣
@@ -63,8 +63,20 @@ RocksDB Checkpoint 是 RocksDB 提供的一種高效資料 Snapshot 機制。它
 Ozone 在刪除 key/file/directory 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 這兩個 RocksDB column family aka Table 中, 然後會由另外的 Background Service - `KeyDeletingService` & `DirectoryDeletingService` 去從那些儲存 deleted key/file/dir 的 table 中 pick up 一些出來然後去叫 **Storage Container Manager** 把對應的 data blocks 刪掉
 
 **這種機制引出兩個問題要解決, 也是這篇文章的重點**：
-1. Snapshot 裡面的 `deletedTable/deletedDirectoryTable` 裡的東西還沒被清乾淨!! DataNode 還存著一堆對於客戶端來說是看不見的 data blocks... 這部分對應到 [DeletingService / Deep Clean](#deletingservice--deep-clean)
+1. Snapshot 裡面的 `deletedTable/deletedDirectoryTable` 裡的東西還沒被清乾淨!! DataNode 還存著一堆對於客戶端來說是看不見的 data blocks 佔著 datanode 上的空間... 這部分對應到 [DeletingService / Deep Clean](#deletingservice--deep-clean)
 2. DeletingService 在看要提交給 SCM 要批次刪除的 data blocks 時, 不能盲目的亂給, 需要 **Snapshot-Aware**, 需要**過濾 snapshot 裡可見的 key/file** 他們所擁有的 data blocks, 避免他們被刪掉, 就像過濾雜質一樣。 這部分對應到 [Reclaimable Filter](#reclaimable-filter)
+
+{{< alert >}}
+Note: 看到第一點你可能會想說: `deletedTable/deletedDirectoryTable` 裡的東西不是都還在 db 裡面嗎？ 那就讓 DeletingService 去清不就好了？
+
+其實這樣想沒錯 但是考慮到 snapshot-aware 的問題, 如果 DeletingService 在清理 deletedTable/deletedDirectoryTable 的 key/file/dir 的時候, 需要把所有 snapshot 都翻出來看他們有沒有包含那個 key/file/dir。這樣很浪費時間
+
+所以 Ozone 在這件事上做的優化就是 - 在建立 snapshot 的時候, 把在 [AOS](#aosafs) 上的 deletedTable/deletedDirectoryTable 的 deleted records 都清乾淨, 只讓那些在 deleted records 留在 snapshot 裡\
+然後就變成, DeletingService 會去檢查每個 snapshot 的 `deletedTable/deletedDirectoryTable` 裡的東西, 然後去對照**前一個 snapshot** 裡有沒有包含那些東西
+
+這樣 DeletingService 在清理的時候就不用再翻完整個 snapshot 了。\
+就是一種把檢查 key 能不能被回收的這個過程均攤到所有 snapshot 上的感覺
+{{< /alert >}}
 
 ## Snapshot Feature 的詳細介紹
 

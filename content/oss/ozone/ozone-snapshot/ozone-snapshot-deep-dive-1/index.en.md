@@ -19,8 +19,8 @@ draft: false
 
 > Starting from the following time and location, [chungen](https://www.linkedin.com/in/chung-en-lee-ab7995225/) and I will take turns hosting the **Ozone Chinese Meeting**
 
-> - **Time:** Every Monday 22:00-23:00 (Taiwan Time UTC+8) starting July 14th
-> - **Location (Virtual):** https://ozone.opensource4you.tw
+> - **Time:** Every Monday 22:00-23:00 (Taiwan Time UTC+8) starting July 14th 2025
+> - **Location (Virtual):** https://opensource4you.tw/ozone/meeting
 > - **Calendar:** https://calendar.opensource4you.tw
 
 > If you're interested in Ozone technical updates or contributing to Ozone itself
@@ -64,6 +64,18 @@ When deleting key/file/directory, Ozone doesn't delete directly but first record
 **This mechanism raises two problems to solve, which are the focus of this article**:
 1. Items in `deletedTable/deletedDirectoryTable` within snapshots haven't been cleaned up!! DataNodes still store a bunch of data blocks invisible to clients... This corresponds to [DeletingService / Deep Clean](#deletingservice--deep-clean)
 2. When DeletingService looks at data blocks to submit for batch deletion to SCM, it can't blindly submit everything. It needs to be **Snapshot-Aware**, filtering out data blocks owned by **keys/files visible in snapshots** to avoid deleting them, like filtering impurities. This corresponds to [Reclaimable Filter](#reclaimable-filter)
+
+{{< alert >}}
+Note: Seeing the first point, you might think: aren't the items in `deletedTable/deletedDirectoryTable` still in the db? Can't we just let DeletingService clean them up?
+
+That's not wrong, but considering the snapshot-aware problem, if DeletingService checks deletedTable/deletedDirectoryTable for keys/files/dirs, it would have to check all snapshots to see if they contain that key/file/dir. That's very inefficient.
+
+So Ozone optimizes this by, at snapshot creation time, cleaning all deleted records from deletedTable/deletedDirectoryTable in the [AOS](#aosafs), leaving only those deleted records in the snapshot itself.\
+Then, DeletingService only needs to check each snapshot's `deletedTable/deletedDirectoryTable` and compare with the **previous snapshot** to see if those items are present.
+
+This way, DeletingService doesn't have to scan the entire snapshot each time it cleans up.\
+It's like amortizing the process of checking whether a key can be reclaimed across all snapshots.
+{{< /alert >}}
 
 ## Detailed Introduction to Snapshot Feature
 
