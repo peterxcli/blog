@@ -1,5 +1,5 @@
 ---
-title: "Ozone Snapshot 解析 1 - Snapshot Deep Clean & Reclaimable Filter"
+title: "Ozone Snapshot 解析 1 - Snapshot Introduction & Deep Clean & Reclaimable Filter"
 summary: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
 description: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
 date: 2025-07-07T17:17:38+08:00
@@ -30,7 +30,7 @@ draft: false
 ## 前言
 
 這個系列預計會有兩篇在詳細介紹 Ozone Snapshot 的原理與細節
-- [第一篇](./)會介紹 Ozone Snapshot 的 Snapshot Deep Clean & Reclaimable Filter。主要在講 Ozone 怎麼解決避免刪除掉 user 在 snapshot 中的可見資料以及 deletion service 是如何 efficient 的把不可見的資料從整個 cluster 中刪掉
+- [第一篇](./)會先介紹 Ozone Snapshot 的基本結構以及 Snapshot Deep Clean & Reclaimable Filter。主要在講 Ozone 怎麼解決避免刪除掉 user 在 snapshot 中的可見資料以及 deletion service 是如何 efficient 的把不可見的資料從整個 cluster 中刪掉
 - 第二篇會介紹 Snapshot Diff, 也是 Snapshot 裡面最重要的功能。主要在講 Snapshot Diff 是怎麼克服 compaction churn 並追蹤 SST 的變化, 計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
 - 第三篇也會也是跟 snapshot 相關的清理相關, 不過第一篇主要是 focus datanode 上資料的清理, 這篇會探討在 Ozone Manager 上怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料(SST Files)去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases
 
@@ -99,10 +99,11 @@ Note: 看到第一點你可能會想說: `deletedTable/deletedDirectoryTable` �
 
 ![](18edb46bbe7aa8743edfe67b504464ab.png)
 
+## Ozone Snapshot Basic
 
-## Metadata of Snapshot
+### Metadata of Snapshot
 
-### Snapshot Info
+#### Snapshot Info
 
 Ozone 用 [`SnapshotInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/helpers/SnapshotInfo.java) 作為每個 Snapshot 的 metadata：
 
@@ -126,7 +127,7 @@ Ozone 用 [`SnapshotInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0
 - `long exclusiveReplicatedSize`： 同上，但考慮了 replication 或 Erasure Coding 後的實際儲存空間。例如，三副本下 `exclusiveSize=1000`，`exclusiveReplicatedSize=3000`。
 - `boolean deepCleanedDeletedDir`：是否已經 deep clean 過 snapshot 裡的 deletedDirectoryTable
 
-### Snapshot Chain
+#### Snapshot Chain
 
 Ozone 使用兩種 snapshot chain 來管理 snapshot：
 
@@ -144,16 +145,17 @@ public class SnapshotChainManager {
 [`SnapshotChainInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/SnapshotChainInfo.java) 裡有 `previousSnapshotId` 和 `nextSnapshotId` 來維護 snapshot chain 的雙向連結。
 
 ![](00c95e1d7b5045b5cb0b67cac26e057f.png)
-## Snapshot 建立流程
 
-### 建立前的驗證
+### Snapshot 建立流程
+
+#### 建立前的驗證
 
 1. 驗證 Snapshot 名稱合法性
 2. 檢查使用者權限（只有 bucket owner 和 admin 可以建立）
 3. 檢查 Snapshot 數量限制
 4. 產生 snapshot ID (UUID)
 
-### RocksDB Checkpoint 建立
+#### RocksDB Checkpoint 建立
 
 ![](2202133755dd8167386a8e30633f84cb.png)
 
@@ -185,7 +187,7 @@ deleteKeysFromDelDirTableInSnapshotScope(omMetadataManager,
     snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
 ```
 
-### Lock Protection
+#### Lock Protection
 
 需要鎖來保護 data race: 在 Bucket Lock 上 Read Lock 來保護 bucket 不被刪除, 以及 Snapshot Lock 上 Write Lock 來保護 snapshot chain 的 path snapshot chain。
 
@@ -207,7 +209,7 @@ acquiredSnapshotLock = getOmLockDetails().isLockAcquired();
 
 因為 Snapshot 建立時, 會涉及多個元件(Snapshot Chain Manager, Snapshot Info Table)所以如果過程中發生錯誤, 需要把變更的資料都還原。
 
-#### OzoneManagerLock
+##### OzoneManagerLock
 
 我們是用一個自己寫的 lock manager [OzoneManagerLock](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/lock/OzoneManagerLock.java) 來上鎖
 
@@ -219,7 +221,7 @@ Striped Lock 可以對 stripe lock 可以管理不同的 key 各自的鎖 提供
 Striped<ReadWriteLock> stripedLock;
 ```
 
-#### Level Lock
+##### Level Lock
 
 雖然 Stripe Lock 已經可以根據各種 bucket prefix/key prefix 來提供細粒度的鎖，但這只是解決了**不同資源之間的並發問題**。還有一個重要的問題需要解決：**同一 thread 內的操作順序和 Resource Level Constraint**。
 

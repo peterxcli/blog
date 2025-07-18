@@ -1,5 +1,5 @@
 ---
-title: "Ozone Snapshot Deep Dive 1 - Snapshot Deep Clean & Reclaimable Filter"
+title: "Ozone Snapshot Deep Dive 1 - Snapshot Introduction & Deep Clean & Reclaimable Filter"
 summary: "Detailed introduction to Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim snapshot data and storage space while ensuring consistency."
 description: "Detailed introduction to Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim snapshot data and storage space while ensuring consistency."
 date: 2025-07-07T17:17:38+08:00
@@ -30,7 +30,7 @@ draft: false
 ## Introduction
 
 This series is expected to have three parts detailing the principles and details of Ozone Snapshot:
-- [Part 1](./) introduces Ozone Snapshot's Snapshot Deep Clean & Reclaimable Filter. It mainly explains how Ozone solves the problem of avoiding deletion of user-visible data in snapshots and how the deletion service efficiently removes invisible data from the entire cluster.
+- [Part 1](./) will first introduce the basic structure of Ozone Snapshot as well as Snapshot Deep Clean & Reclaimable Filter. It mainly explains how Ozone solves the problem of avoiding deletion of user-visible data in snapshots and how the deletion service efficiently removes invisible data from the entire cluster.
 - Part 2 will introduce Snapshot Diff, the most important feature in Snapshot. It mainly explains how Snapshot Diff overcomes compaction churn and tracks SST changes to calculate changes between any two snapshots - `+` (add), `-` (delete), `M` (modify), `R` (rename).
 - Part 3 will also be related to snapshot cleanup, but while Part 1 focuses on data cleanup on datanodes, this part will explore how to use SST Files Filtering on Ozone Manager to remove data (SST Files) unrelated to each Snapshot, and how Snapshot Deleting Service handles snapshot-aware reclaimable resource cases when deleting snapshots.
 
@@ -99,10 +99,11 @@ There are also several articles explaining what Ozone snapshot can do in detail,
 
 ![](18edb46bbe7aa8743edfe67b504464ab.png)
 
+## Ozone Snapshot Basic
 
-## Metadata of Snapshot
+### Metadata of Snapshot
 
-### Snapshot Info
+#### Snapshot Info
 
 Ozone uses [`SnapshotInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/helpers/SnapshotInfo.java) as metadata for each Snapshot:
 
@@ -126,7 +127,7 @@ The information it contains includes:
 - `long exclusiveReplicatedSize`: Same as above but considering actual storage space after replication or Erasure Coding. For example, with three replicas `exclusiveSize=1000`, `exclusiveReplicatedSize=3000`.
 - `boolean deepCleanedDeletedDir`: Whether deletedDirectoryTable within the snapshot has been deep cleaned
 
-### Snapshot Chain
+#### Snapshot Chain
 
 Ozone uses two types of snapshot chains to manage snapshots:
 
@@ -144,16 +145,17 @@ public class SnapshotChainManager {
 [`SnapshotChainInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/SnapshotChainInfo.java) has `previousSnapshotId` and `nextSnapshotId` to maintain bidirectional links in the snapshot chain.
 
 ![](00c95e1d7b5045b5cb0b67cac26e057f.png)
-## Snapshot Creation Process
 
-### Pre-creation Validation
+### Snapshot Creation Process
+
+#### Pre-creation Validation
 
 1. Validate snapshot name legality
 2. Check user permissions (only bucket owner and admin can create)
 3. Check snapshot count limit
 4. Generate snapshot ID (UUID)
 
-### RocksDB Checkpoint Creation
+#### RocksDB Checkpoint Creation
 
 ![](2202133755dd8167386a8e30633f84cb.png)
 
@@ -185,7 +187,7 @@ deleteKeysFromDelDirTableInSnapshotScope(omMetadataManager,
     snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
 ```
 
-### Lock Protection
+#### Lock Protection
 
 Locks are needed to protect against data races: Read Lock on Bucket Lock to protect the bucket from deletion, and Write Lock on Snapshot Lock to protect the path snapshot chain.
 
@@ -207,7 +209,7 @@ Also, snapshot creation must ensure atomicity to avoid partial success.
 
 Since snapshot creation involves multiple components (Snapshot Chain Manager, Snapshot Info Table), if errors occur during the process, all changes need to be rolled back.
 
-#### OzoneManagerLock
+##### OzoneManagerLock
 
 We use a custom lock manager [OzoneManagerLock](https://github.com/apache/ozone/blob/9b713d0b6594785872090cd78798a0931779f630/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/lock/OzoneManagerLock.java) for locking.
 
@@ -219,7 +221,7 @@ Striped Lock can manage locks for different keys individually, providing fine-gr
 Striped<ReadWriteLock> stripedLock;
 ```
 
-#### Level Lock
+##### Level Lock
 
 While Stripe Lock can provide fine-grained locks based on various bucket prefix/key prefix, this only solves **concurrency issues between different resources**. There's another important issue to solve: **operation order within the same thread and Resource Level Constraints**.
 
@@ -263,7 +265,7 @@ Level Lock is implemented using **bit mask**, each thread has its own independen
 
 Through this design, we can ensure resource acquisition order is correct within the same thread, preventing deadlocks.
 
-## DeletingService / Deep Clean
+## DeletingService & Deep Clean
 
 Ozone's Deep Clean mechanism mainly relies on two background services: `KeyDeletingService` and `DirectoryDeletingService`. These services periodically scan OM metadata to safely reclaim and physically delete keys and directories that are marked for deletion but not yet reclaimed, based on snapshot chain status.
 
