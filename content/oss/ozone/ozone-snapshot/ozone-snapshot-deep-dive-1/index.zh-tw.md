@@ -29,9 +29,14 @@ draft: false
 
 ## 前言
 
-[Apache Ozone](https://ozone.apache.org/) 是個 [open source](https://github.com/apache/ozone) 的 distributed file system
+這個系列預計會有兩篇在詳細介紹 Ozone Snapshot 的原理與細節
+- [第一篇](./)會介紹 Ozone Snapshot 的 Snapshot Deep Clean & Reclaimable Filter。主要在講 Ozone 怎麼解決避免刪除掉 user 在 snapshot 中的可見資料以及 deletion service 是如何 efficient 的把不可見的資料從整個 cluster 中刪掉
+- 第二篇會介紹 Snapshot Diff, 也是 Snapshot 裡面最重要的功能。主要在講 Snapshot Diff 是怎麼克服 compaction churn 並追蹤 SST 的變化, 計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
+- 第三篇也會也是跟 snapshot 相關的清理相關, 不過第一篇主要是 focus datanode 上資料的清理, 這篇會探討在 Ozone Manager 上怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料(SST Files)去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases
 
 ### Ozone Basic
+
+[Apache Ozone](https://ozone.apache.org/) 是個 [open source](https://github.com/apache/ozone) 的 distributed file system
 
 Ozone 是透過他的其中一個叫 Ozone Manager 管理檔案/object 的 metadata 的。
 對於客戶端來說, 流程就是, 
@@ -284,7 +289,7 @@ public BackgroundTaskQueue getTasks() {
 }
 ```
 
-一開始先把 `DirDeletingTask(null)` 放進 queue 是為了讓 DeletingService 對 active DB 進行 deep clean, 之後再針對每個 snapshot 進行 deep clean(依照 snapshot chain 的順序)。
+一開始先把 `DirDeletingTask(null)` 放進 queue 是為了讓 DeletingService 對 active DB 進行 deep clean, 之後再針對每個 snapshot 也放進 queue 等待進行 deep clean(依照 snapshot chain 的順序)。
 
 同理，`KeyDeletingService` 也是這樣
 
@@ -462,9 +467,7 @@ public class ReclaimableRenameEntryFilter extends ReclaimableFilter<String> {
 
 ## 結語
 
-Deep Clean 只是 Ozone Snapshot 管理中的一小部分, 下一篇 **Ozone Snapshot 解析 2 - Snapshot Deleting Service & SST Files Filtering & Snapshot Diff** 會探討怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases, 還有最重要的主角- Snapshot Diff - 是怎麼克服 compaction churn 並計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
-
-如果寫得出來而且塞得下的話...
+Deep Clean 只是 Ozone Snapshot 管理中的一小部分, 其實看下來這篇文章裡提到的機制都蠻像 work around 的, 有一種 Ozone 為了要實現 snapshot 的特性, 而不得不做的 compromises 的感覺.
 
 ## Reference
 - [Snapshots for an Object Store](https://www.youtube.com/watch?v=7_FrTClCUag)

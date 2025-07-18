@@ -29,8 +29,15 @@ draft: false
 
 ## Introduction
 
-[Apache Ozone](https://ozone.apache.org/) is an [open source](https://github.com/apache/ozone) distributed file system
+This series is expected to have three parts detailing the principles and details of Ozone Snapshot:
+- [Part 1](./) introduces Ozone Snapshot's Snapshot Deep Clean & Reclaimable Filter. It mainly explains how Ozone solves the problem of avoiding deletion of user-visible data in snapshots and how the deletion service efficiently removes invisible data from the entire cluster.
+- Part 2 will introduce Snapshot Diff, the most important feature in Snapshot. It mainly explains how Snapshot Diff overcomes compaction churn and tracks SST changes to calculate changes between any two snapshots - `+` (add), `-` (delete), `M` (modify), `R` (rename).
+- Part 3 will also be related to snapshot cleanup, but while Part 1 focuses on data cleanup on datanodes, this part will explore how to use SST Files Filtering on Ozone Manager to remove data (SST Files) unrelated to each Snapshot, and how Snapshot Deleting Service handles snapshot-aware reclaimable resource cases when deleting snapshots.
+
 ### Ozone Basic
+
+[Apache Ozone](https://ozone.apache.org/) is an [open source](https://github.com/apache/ozone) distributed file system
+
 
 Ozone manages file/object metadata through one of its components called Ozone Manager.
 From the client's perspective, the process is:
@@ -460,9 +467,7 @@ but if you think carefully using induction, you'll realize we only need to look 
 
 ## Conclusion
 
-Deep Clean is just a small part of Ozone Snapshot management. The next article **Ozone Snapshot Deep Dive 2 - Snapshot Deleting Service & SST Files Filtering & Snapshot Diff** will explore how to use SST Files Filtering to remove data unrelated to each Snapshot, how Snapshot Deleting Service handles snapshot-aware reclaimable resource cases when deleting snapshots, and most importantly - how Snapshot Diff overcomes compaction churn to calculate changes between any two snapshots - `+` (add), `-` (delete), `M` (modify), `R` (rename).
-
-If I can write it all and fit it in...
+Deep Clean is just a small part of Ozone Snapshot management. Actually, looking at the mechanisms mentioned in this article, they all seem like workarounds, giving the feeling that Ozone had to make compromises to implement snapshot features.
 
 ## Reference
 - [Snapshots for an Object Store](https://www.youtube.com/watch?v=7_FrTClCUag)
