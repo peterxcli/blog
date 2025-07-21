@@ -107,40 +107,13 @@ Note: 看到第一點你可能會想說: `deletedTable/deletedDirectoryTable` �
 
 Ozone 用 [`SnapshotInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/helpers/SnapshotInfo.java) 作為每個 Snapshot 的 metadata：
 
-裡面含有的資訊有:
-- `UUID snapshotId`：這個 snapshot 的 uuid
-- `String name`：snapshot 名稱
-- `String volumeName`：snapshot 所屬的 volume
-- `String bucketName`：snapshot 所屬的 bucket
-- `SnapshotStatus snapshotStatus`：snapshot 狀態（ACTIVE 或 DELETED）
-- `long creationTime`：建立時間
-- `long deletionTime`：刪除時間
-- `UUID pathPreviousSnapshotId`：同路徑（bucket prefix）下的前一個 snapshot, 與 [Snapshot Chain](#snapshot-chain) 有關
-- `UUID globalPreviousSnapshotId`：全域的前一個 snapshot, 也與 [Snapshot Chain](#snapshot-chain) 有關
-- `String checkpointDir`：RocksDB checkpoint 目錄
-- `long dbTxSequenceNumber`：RocksDB 序列號
-- `boolean deepClean`：是否已執行深度清理
-- `boolean sstFiltered`：是否已過濾 SST 檔案
-- `long referencedSize`：這個 snapshot 的資料大小（以 bytes 為單位), 資料指的是 data blocks 的資料大小, 不是這個 rocksdb checkpoint 在 OM 的 Disk 上佔的大小
-- `long referencedReplicatedSize`：同上，但考慮了 replication 或 Erasure Coding 後的實際儲存空間, 但這個空間大小是估計的, 並沒有實際根據每個 key 的 data size & replication policy 去計算, 不然太慢了
-- `long exclusiveSize`：這個 snapshot「獨佔」的資料大小（以 bytes 為單位），也就是只屬於這個 snapshot、其他 snapshot 都沒有的資料量。這個"獨佔"的概念在 [Reclaimable Filter](#reclaimable-filter) 中會提到
-- `long exclusiveReplicatedSize`： 同上，但考慮了 replication 或 Erasure Coding 後的實際儲存空間。例如，三副本下 `exclusiveSize=1000`，`exclusiveReplicatedSize=3000`。
-- `boolean deepCleanedDeletedDir`：是否已經 deep clean 過 snapshot 裡的 deletedDirectoryTable
+`SnapshotInfo` 主要記錄每一個 snapshot 的各項資訊，包括其 UUID、名稱、所屬的 volume 和 bucket，以及當前狀態（如 ACTIVE 或 DELETED）。此外，還包含建立與刪除的時間、與前一個 snapshot 的關聯（無論是在同一 bucket 的路徑下或全域範圍）、RocksDB checkpoint directory 與 sequence number，以及資料相關的統計資訊，例如 snapshot 參考的資料大小、考慮 replication 或 Erasure Coding 後的儲存空間、以及該 snapshot 獨佔的資料量。最後，也會記錄是否已經執行過深度清理、SST 檔案過濾，以及 deletedDirectoryTable 的 deep clean 狀態。這些資訊都會 persist 在 OM 的 RocksDB 中。
 
 #### Snapshot Chain
 
 Ozone 使用兩種 snapshot chain 來管理 snapshot：
-
-```java
-public class SnapshotChainManager {
-    // global snapshot chain：所有 snapshot 按時間順序連接
-    private Map<String, SnapshotChainInfo> globalSnapshotChain; // synchronizedMap
-    
-    // path snapshot chain：每個 volume/bucket 維護自己的 snapshot chain (按照時間順序連接)
-    private ConcurrentMap<String, LinkedHashMap<UUID, SnapshotChainInfo>>
-      snapshotChainByPath;
-}
-```
+1. global snapshot chain：所有 snapshot 按時間順序連接, 主要是 snapshot feature 的 system level 的操作(Deep Clean, SST Filtering)會使用到
+2. path snapshot chain：每個 volume/bucket 維護自己的 snapshot chain (按照時間順序連接), 主要是 Snapshot Diff 會使用到
 
 [`SnapshotChainInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/SnapshotChainInfo.java) 裡有 `previousSnapshotId` 和 `nextSnapshotId` 來維護 snapshot chain 的雙向連結。
 
@@ -162,51 +135,19 @@ public class SnapshotChainManager {
 這是 Snapshot 建立的核心步驟，利用 RocksDB 的 checkpoint 功能：
 
 
-1. manually flush WAL 和 MemTable 到磁碟
-    因為 Checkpoint 是透過對當前 SST Files 建立 hard link 來達成，所以需要先強制刷新 WAL 和 MemTable 到磁碟，確保 SST Files 是有包含最新的資料。
-
-```java
-// Flush the DB WAL and mem table.
-db.flushWal(true);
-db.flush();
-
-checkpoint.createCheckpoint(checkpointPath);
-``` 
-
+1. Manually flush WAL 和 MemTable 到磁碟, 再 call RocksDB 的 create checkpoint API
+    因為 RocksDB Checkpoint 是透過對當前 SST Files 建立 hard link 來達成，所以需要先強制 flush WAL 和 MemTable 到磁碟，確保 SST Files 是有包含最新的資料。
 
 2. 清理 Snapshot 範圍內的已刪除資料
-    Ozone 在刪除 key or file 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 中, 在建立 Snapshot 時, 因為 `deletedTable` 和 `deletedDirectoryTable` 的內容都已經被紀錄到該 snapshot 中, 所以可以把這兩個 table 都清空, 這也讓後續的 DeletingService/ReclaimableFilter 可以更輕鬆的處理 GC/Deep Clean, 因為每個 snapshot 的 `deletedTable`/`deletedDirectoryTable` 的內容一定不會重複。
-
-```java
-// Clean up active DB's deletedTable right after checkpoint is taken,
-// There is no need to take any lock as of now, because transactions are flushed sequentially.
-deleteKeysFromDelKeyTableInSnapshotScope(omMetadataManager,
-    snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
-// Clean up deletedDirectoryTable as well
-deleteKeysFromDelDirTableInSnapshotScope(omMetadataManager,
-    snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
-```
+    Ozone 在刪除 key or file 的時候不會直接刪除, 而是會先將其記錄在 `deletedTable` 和 `deletedDirectoryTable` 中, 在建立 Snapshot 時, 因為 `deletedTable` 和 `deletedDirectoryTable` 的內容都已經被紀錄到該 snapshot 中, 所以可以把這兩個 table 都清空, 這也讓後續的 DeletingService/ReclaimableFilter 可以更輕鬆的處理 GC/Deep Clean, 因為這樣做的話每個 snapshot 的 `deletedTable`/`deletedDirectoryTable` 的內容一定不會重複, 就可以**分開處理**。
 
 #### Lock Protection
 
-需要鎖來保護 data race: 在 Bucket Lock 上 Read Lock 來保護 bucket 不被刪除, 以及 Snapshot Lock 上 Write Lock 來保護 snapshot chain 的 path snapshot chain。
+需要鎖來保護建立 snapshot 的過程中可能會發生的 data race:
+- [在 Bucket Lock 上 Read Lock 來保護 bucket 不被刪除](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/request/snapshot/OMSnapshotCreateRequest.java#L152-L157)
+- [以及 Snapshot Lock 上 Write Lock 來保護 snapshot chain 的 path snapshot chain](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/request/snapshot/OMSnapshotCreateRequest.java#L159-L162)
 
-```java
-// Lock bucket so it doesn't
-//  get deleted while creating snapshot
-mergeOmLockDetails(
-    omMetadataManager.getLock().acquireReadLock(BUCKET_LOCK,
-        volumeName, bucketName));
-acquiredBucketLock = getOmLockDetails().isLockAcquired();
-
-mergeOmLockDetails(
-    omMetadataManager.getLock().acquireWriteLock(SNAPSHOT_LOCK,
-        volumeName, bucketName, snapshotName));
-acquiredSnapshotLock = getOmLockDetails().isLockAcquired();
-```
-
-還有 Snapshot 的建立過程必須保證原子性，避免部分成功的情況, 
-
+還有 Snapshot 的建立過程必須保證原子性，避免部分成功的情況\
 因為 Snapshot 建立時, 會涉及多個元件(Snapshot Chain Manager, Snapshot Info Table)所以如果過程中發生錯誤, 需要把變更的資料都還原。
 
 ##### OzoneManagerLock
@@ -273,27 +214,10 @@ Ozone 的 Deep Clean 機制，主要依賴兩個背景服務：`KeyDeletingServi
 
 Ozone 的 Deletion Service（包含 `KeyDeletingService` 與 `DirectoryDeletingService`）**會針對每一個 snapshot 都做 deep clean**，而不是只針對 active DB（AOS）進行。這是 Ozone snapshot 空間回收機制的核心設計之一。
 
-舉例來說，`DirectoryDeletingService` 的 `getTasks()` 方法會自動為每個 snapshot 建立一個 background task：
+舉例來說，`DirectoryDeletingService` 的 [getTasks()](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/DirectoryDeletingService.java#L207-L225) 方法會自動為每個 snapshot (包含 active DB aka [AOS](#active-object-store)) 建立一個 background task\
+會用一個 task queue 來 serially 處理每個 snapshot 的 deep clean
 
-```java
-@Override
-public BackgroundTaskQueue getTasks() {
-  BackgroundTaskQueue queue = new BackgroundTaskQueue();
-  queue.add(new DirDeletingTask(null)); // 針對 active object store (AOS)
-  if (deepCleanSnapshots) {
-    Iterator<UUID> iterator = snapshotChainManager.iterator(true);
-    while (iterator.hasNext()) {
-      UUID snapshotId = iterator.next();
-      queue.add(new DirDeletingTask(snapshotId)); // 針對每個 snapshot
-    }
-  }
-  return queue;
-}
-```
-
-一開始先把 `DirDeletingTask(null)` 放進 queue 是為了讓 DeletingService 對 active DB 進行 deep clean, 之後再針對每個 snapshot 也放進 queue 等待進行 deep clean(依照 snapshot chain 的順序)。
-
-同理，`KeyDeletingService` 也是這樣
+同理，[KeyDeletingService](#keydeletingservice) 也是這樣
 
 這種設計的好處是：**每個 snapshot 都能獨立進行 deep clean，確保即使 snapshot chain 很長、snapshot 之間的資料參照複雜，也能安全且高效地回收空間**。而且每個 snapshot 的 deep clean 狀態（如 `deepCleanedDeletedDir`、`deepCleanedDeletedKey`）都會被單獨追蹤，只有當該 snapshot 的所有 deleted directory 或 key 都被安全回收後，才會標記為 deep clean 完成。
 
@@ -303,53 +227,15 @@ public BackgroundTaskQueue getTasks() {
 
 就是遍歷 snapshotRenamedTable 和 deletedTable, 然後用 [reclaimable filter](#reclaimable-filter) 過濾出可以回收的 key, 然後再發送給 SCM 進行物理刪除。
 
+1. 遍歷 [snapshotRenamedTable](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/KeyDeletingService.java#L360-L363) 和 [deletedTable](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/KeyDeletingService.java#L374-L377), 然後用 [reclaimable filter](#reclaimable-filter) 過濾出可以回收的 key
 
-1. 遍歷 snapshotRenamedTable 和 deletedTable, 然後用 reclaimable filter 過濾出可以回收的 key：
-
-```java
-List<String> renamedTableEntries =
-    keyManager.getRenamesKeyEntries(volume, bucket, null, renameEntryFilter, remainNum).stream()
-        .map(Table.KeyValue::getKey)
-        .collect(Collectors.toList());
-remainNum -= renamedTableEntries.size();
-
-// Get pending keys that can be deleted
-PendingKeysDeletion pendingKeysDeletion = currentSnapshotInfo == null
-    ? keyManager.getPendingDeletionKeys(reclaimableKeyFilter, remainNum)
-    : keyManager.getPendingDeletionKeys(volume, bucket, null, reclaimableKeyFilter, remainNum);
-```
-
-可以注意到這裡有個 `remainNum` 的參數，這是為了避免一次過濾太多 key, 拿來做 pagination 的。
+    過程中會有個 `remainNum` 和 `ratisLimit` 兩個 decrement counter 拿來做 pagination, 分別是限制一次刪除 key 的總數以及 data blocks 的 total bytes number。
 
 2. 發送給 SCM 進行物理刪除 (跟 SCM 說可以把哪些 data blocks 真的刪掉, 他刪完之後整個檔案(metadata + data/content 才是真正意義上的從 ozone cluster 裡消失))：
 	1. 跟 SCM 說哪些 blocks 可以被刪除
 	2. SCM 回報成功後, 再發送 purge keys request 給 OM, 然後 keys 才會真正從 OM DB 中刪除
 
-```java
-Pair<Integer, Boolean> processKeyDeletes(List<BlockGroup> keyBlocksList, Map<String, RepeatedOmKeyInfo> keysToModify, List<String> renameEntries, String snapTableKey, UUID expectedPreviousSnapshotId) throws IOException {
-	...
-	// 跟 SCM 說哪些 blocks 可以被刪除
-	List<DeleteBlockGroupResult> blockDeletionResults = scmClient.deleteKeyBlocks(keyBlocksList);
-	...
-	// SCM 回報成功後, 再發送 purge keys request 給 OM, 然後 keys 才會真正從 OM DB 中消失
-	purgeResult = submitPurgeKeysRequest(blockDeletionResults,
-	     keysToModify, renameEntries, snapTableKey, expectedPreviousSnapshotId);
-	...
-	return purgeResult;
-}
-```
-
-3. 當一個 snapshot 的所有 key 都被安全回收後, 更新該 snapshot 的 deep clean 標記：
-
-```java
-if (currentSnapshotInfo != null) {
-  setSnapshotPropertyRequests.add(OzoneManagerProtocolProtos.SetSnapshotPropertyRequest.newBuilder()
-      .setSnapshotKey(snapshotTableKey)
-      .setDeepCleanedDeletedKey(true)
-      .build());
-}
-submitSetSnapshotRequests(setSnapshotPropertyRequests);
-```
+3. 當一個 snapshot 的所有 key 都被安全回收後, 更新該 snapshot 的 deep clean 標記
 
 這代表該 snapshot 的 key 已經完成 deep clean，後續可以安全地釋放空間。
 

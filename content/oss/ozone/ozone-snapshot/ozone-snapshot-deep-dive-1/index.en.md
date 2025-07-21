@@ -107,40 +107,13 @@ There are also several articles explaining what Ozone snapshot can do in detail,
 
 Ozone uses [`SnapshotInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/common/src/main/java/org/apache/hadoop/ozone/om/helpers/SnapshotInfo.java) as metadata for each Snapshot:
 
-The information it contains includes:
-- `UUID snapshotId`: UUID of this snapshot
-- `String name`: Snapshot name
-- `String volumeName`: Volume the snapshot belongs to
-- `String bucketName`: Bucket the snapshot belongs to
-- `SnapshotStatus snapshotStatus`: Snapshot status (ACTIVE or DELETED)
-- `long creationTime`: Creation time
-- `long deletionTime`: Deletion time
-- `UUID pathPreviousSnapshotId`: Previous snapshot under the same path (bucket prefix), related to [Snapshot Chain](#snapshot-chain)
-- `UUID globalPreviousSnapshotId`: Global previous snapshot, also related to [Snapshot Chain](#snapshot-chain)
-- `String checkpointDir`: RocksDB checkpoint directory
-- `long dbTxSequenceNumber`: RocksDB sequence number
-- `boolean deepClean`: Whether deep cleaning has been performed
-- `boolean sstFiltered`: Whether SST files have been filtered
-- `long referencedSize`: Data size of this snapshot (in bytes), referring to data blocks' size, not the RocksDB checkpoint's disk size on OM
-- `long referencedReplicatedSize`: Same as above but considering actual storage space after replication or Erasure Coding. This space size is estimated, not calculated based on each key's actual data size & replication policy (too slow otherwise)
-- `long exclusiveSize`: "Exclusive" data size of this snapshot (in bytes), meaning data that belongs only to this snapshot and no other snapshots. This "exclusive" concept will be mentioned in [Reclaimable Filter](#reclaimable-filter)
-- `long exclusiveReplicatedSize`: Same as above but considering actual storage space after replication or Erasure Coding. For example, with three replicas `exclusiveSize=1000`, `exclusiveReplicatedSize=3000`.
-- `boolean deepCleanedDeletedDir`: Whether deletedDirectoryTable within the snapshot has been deep cleaned
+`SnapshotInfo` primarily records various information about each snapshot, including its UUID, name, volume and bucket it belongs to, and current status (such as ACTIVE or DELETED). Additionally, it contains creation and deletion times, associations with previous snapshots (whether under the same bucket path or globally), RocksDB checkpoint directory and sequence number, as well as data-related statistics such as the snapshot's referenced data size, storage space after considering replication or Erasure Coding, and the exclusive data amount for that snapshot. Finally, it also records whether deep cleaning, SST file filtering, and deletedDirectoryTable deep clean have been performed. All this information is persisted in OM's RocksDB.
 
 #### Snapshot Chain
 
 Ozone uses two types of snapshot chains to manage snapshots:
-
-```java
-public class SnapshotChainManager {
-    // global snapshot chain: all snapshots connected in chronological order
-    private Map<String, SnapshotChainInfo> globalSnapshotChain; // synchronizedMap
-    
-    // path snapshot chain: each volume/bucket maintains its own snapshot chain (connected in chronological order)
-    private ConcurrentMap<String, LinkedHashMap<UUID, SnapshotChainInfo>>
-      snapshotChainByPath;
-}
-```
+1. global snapshot chain: all snapshots connected in chronological order, primarily used by system-level snapshot feature operations (Deep Clean, SST Filtering)
+2. path snapshot chain: each volume/bucket maintains its own snapshot chain (connected in chronological order), primarily used by Snapshot Diff
 
 [`SnapshotChainInfo`](https://github.com/apache/ozone/blob/3bfb7affaf860ae0957fea2b2058ab50a85f571d/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/SnapshotChainInfo.java) has `previousSnapshotId` and `nextSnapshotId` to maintain bidirectional links in the snapshot chain.
 
@@ -162,51 +135,19 @@ public class SnapshotChainManager {
 This is the core step of snapshot creation, utilizing RocksDB's checkpoint feature:
 
 
-1. Manually flush WAL and MemTable to disk
-    Since Checkpoint is achieved by creating hard links to current SST Files, we need to force flush WAL and MemTable to disk to ensure SST Files contain the latest data.
-
-```java
-// Flush the DB WAL and mem table.
-db.flushWal(true);
-db.flush();
-
-checkpoint.createCheckpoint(checkpointPath);
-``` 
-
+1. Manually flush WAL and MemTable to disk, then call RocksDB's create checkpoint API
+    Since RocksDB Checkpoint is achieved by creating hard links to current SST Files, we need to force flush WAL and MemTable to disk to ensure SST Files contain the latest data.
 
 2. Clean up deleted data within snapshot scope
-    When Ozone deletes key or file, it doesn't delete directly but records them in `deletedTable` and `deletedDirectoryTable`. During snapshot creation, since the contents of `deletedTable` and `deletedDirectoryTable` are already recorded in the snapshot, these two tables can be cleared. This makes subsequent DeletingService/ReclaimableFilter easier to handle GC/Deep Clean, as each snapshot's `deletedTable`/`deletedDirectoryTable` contents will never overlap.
-
-```java
-// Clean up active DB's deletedTable right after checkpoint is taken,
-// There is no need to take any lock as of now, because transactions are flushed sequentially.
-deleteKeysFromDelKeyTableInSnapshotScope(omMetadataManager,
-    snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
-// Clean up deletedDirectoryTable as well
-deleteKeysFromDelDirTableInSnapshotScope(omMetadataManager,
-    snapshotInfo.getVolumeName(), snapshotInfo.getBucketName(), batchOperation);
-```
+    When Ozone deletes key or file, it doesn't delete directly but records them in `deletedTable` and `deletedDirectoryTable`. During snapshot creation, since the contents of `deletedTable` and `deletedDirectoryTable` are already recorded in the snapshot, these two tables can be cleared. This makes subsequent DeletingService/ReclaimableFilter easier to handle GC/Deep Clean, as doing so ensures each snapshot's `deletedTable`/`deletedDirectoryTable` contents will never overlap, allowing them to be **processed separately**.
 
 #### Lock Protection
 
-Locks are needed to protect against data races: Read Lock on Bucket Lock to protect the bucket from deletion, and Write Lock on Snapshot Lock to protect the path snapshot chain.
+Locks are needed to protect against data races that might occur during snapshot creation:
+- [Read Lock on Bucket Lock to protect the bucket from deletion](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/request/snapshot/OMSnapshotCreateRequest.java#L152-L157)
+- [Write Lock on Snapshot Lock to protect the path snapshot chain](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/request/snapshot/OMSnapshotCreateRequest.java#L159-L162)
 
-```java
-// Lock bucket so it doesn't
-//  get deleted while creating snapshot
-mergeOmLockDetails(
-    omMetadataManager.getLock().acquireReadLock(BUCKET_LOCK,
-        volumeName, bucketName));
-acquiredBucketLock = getOmLockDetails().isLockAcquired();
-
-mergeOmLockDetails(
-    omMetadataManager.getLock().acquireWriteLock(SNAPSHOT_LOCK,
-        volumeName, bucketName, snapshotName));
-acquiredSnapshotLock = getOmLockDetails().isLockAcquired();
-```
-
-Also, snapshot creation must ensure atomicity to avoid partial success. 
-
+Also, snapshot creation must ensure atomicity to avoid partial success cases.\
 Since snapshot creation involves multiple components (Snapshot Chain Manager, Snapshot Info Table), if errors occur during the process, all changes need to be rolled back.
 
 ##### OzoneManagerLock
@@ -273,27 +214,10 @@ Ozone's Deep Clean mechanism mainly relies on two background services: `KeyDelet
 
 Ozone's Deletion Service (including `KeyDeletingService` and `DirectoryDeletingService`) **performs deep clean for every snapshot**, not just the active DB (AOS). This is one of the core designs of Ozone's snapshot space reclamation mechanism.
 
-For example, the `getTasks()` method of `DirectoryDeletingService` automatically creates a background task for each snapshot:
+For example, the [getTasks()](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/DirectoryDeletingService.java#L207-L225) method of `DirectoryDeletingService` automatically creates a background task for each snapshot (including active DB aka [AOS](#active-object-store)).\
+A task queue is used to serially process each snapshot's deep clean.
 
-```java
-@Override
-public BackgroundTaskQueue getTasks() {
-  BackgroundTaskQueue queue = new BackgroundTaskQueue();
-  queue.add(new DirDeletingTask(null)); // For active object store (AOS)
-  if (deepCleanSnapshots) {
-    Iterator<UUID> iterator = snapshotChainManager.iterator(true);
-    while (iterator.hasNext()) {
-      UUID snapshotId = iterator.next();
-      queue.add(new DirDeletingTask(snapshotId)); // For each snapshot
-    }
-  }
-  return queue;
-}
-```
-
-First, `DirDeletingTask(null)` is added to the queue for DeletingService to deep clean the active DB, then deep clean is performed for each snapshot (in snapshot chain order).
-
-Similarly for `KeyDeletingService`.
+Similarly for [KeyDeletingService](#keydeletingservice).
 
 The benefit of this design is: **Each snapshot can perform deep clean independently, ensuring safe and efficient space reclamation even with long snapshot chains and complex data references between snapshots**. Each snapshot's deep clean status (like `deepCleanedDeletedDir`, `deepCleanedDeletedKey`) is tracked individually, and only marked as deep clean complete when all deleted directories or keys in that snapshot have been safely reclaimed.
 
@@ -303,53 +227,15 @@ The benefit of this design is: **Each snapshot can perform deep clean independen
 
 It traverses snapshotRenamedTable and deletedTable, filters reclaimable keys using [reclaimable filter](#reclaimable-filter), then sends them to SCM for physical deletion.
 
+1. Traverse [snapshotRenamedTable](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/KeyDeletingService.java#L360-L363) and [deletedTable](https://github.com/apache/ozone/blob/35e1745ca47351186e00d2128694177cde8b6125/hadoop-ozone/ozone-manager/src/main/java/org/apache/hadoop/ozone/om/service/KeyDeletingService.java#L374-L377), filter reclaimable keys using [reclaimable filter](#reclaimable-filter)
 
-1. Traverse snapshotRenamedTable and deletedTable, filter reclaimable keys using reclaimable filter:
-
-```java
-List<String> renamedTableEntries =
-    keyManager.getRenamesKeyEntries(volume, bucket, null, renameEntryFilter, remainNum).stream()
-        .map(Table.KeyValue::getKey)
-        .collect(Collectors.toList());
-remainNum -= renamedTableEntries.size();
-
-// Get pending keys that can be deleted
-PendingKeysDeletion pendingKeysDeletion = currentSnapshotInfo == null
-    ? keyManager.getPendingDeletionKeys(reclaimableKeyFilter, remainNum)
-    : keyManager.getPendingDeletionKeys(volume, bucket, null, reclaimableKeyFilter, remainNum);
-```
-
-Note the `remainNum` parameter here, used for pagination to avoid filtering too many keys at once.
+    During the process there are `remainNum` and `ratisLimit` decrement counters used for pagination, limiting the total number of keys deleted at once and the total bytes number of data blocks respectively.
 
 2. Send to SCM for physical deletion (tell SCM which data blocks can be truly deleted, after deletion the entire file (metadata + data/content) truly disappears from the ozone cluster):
 	1. Tell SCM which blocks can be deleted
 	2. After SCM reports success, send purge keys request to OM, then keys are truly deleted from OM DB
 
-```java
-Pair<Integer, Boolean> processKeyDeletes(List<BlockGroup> keyBlocksList, Map<String, RepeatedOmKeyInfo> keysToModify, List<String> renameEntries, String snapTableKey, UUID expectedPreviousSnapshotId) throws IOException {
-	...
-	// Tell SCM which blocks can be deleted
-	List<DeleteBlockGroupResult> blockDeletionResults = scmClient.deleteKeyBlocks(keyBlocksList);
-	...
-	// After SCM reports success, send purge keys request to OM, then keys truly disappear from OM DB
-	purgeResult = submitPurgeKeysRequest(blockDeletionResults,
-	     keysToModify, renameEntries, snapTableKey, expectedPreviousSnapshotId);
-	...
-	return purgeResult;
-}
-```
-
-3. When all keys in a snapshot have been safely reclaimed, update that snapshot's deep clean marker:
-
-```java
-if (currentSnapshotInfo != null) {
-  setSnapshotPropertyRequests.add(OzoneManagerProtocolProtos.SetSnapshotPropertyRequest.newBuilder()
-      .setSnapshotKey(snapshotTableKey)
-      .setDeepCleanedDeletedKey(true)
-      .build());
-}
-submitSetSnapshotRequests(setSnapshotPropertyRequests);
-```
+3. When all keys in a snapshot have been safely reclaimed, update that snapshot's deep clean marker
 
 This indicates that snapshot's keys have completed deep clean and space can be safely released later.
 
