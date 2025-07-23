@@ -1,5 +1,5 @@
 ---
-title: "Ozone Snapshot 解析 1 - Snapshot Introduction & Deep Clean & Reclaimable Filter"
+title: "Ozone Snapshot 解析 1 - 這東西到底能不能刪？之 Snapshot Deep Clean & Reclaimable Filter"
 summary: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
 description: "詳細介紹 Apache Ozone Snapshot 的 Deep Clean 機制與 Reclaimable Filter 設計，說明如何在確保一致性的前提下，安全且高效地回收快照資料與儲存空間。"
 date: 2025-07-07T17:17:38+08:00
@@ -33,6 +33,11 @@ draft: false
 - [第一篇](./)會先介紹 Ozone Snapshot 的基本結構以及 Snapshot Deep Clean & Reclaimable Filter。主要在講 Ozone 怎麼解決避免刪除掉 user 在 snapshot 中的可見資料以及 deletion service 是如何 efficient 的把不可見的資料從整個 cluster 中刪掉
 - 第二篇會介紹 Snapshot Diff, 也是 Snapshot 裡面最重要的功能。主要在講 Snapshot Diff 是怎麼克服 compaction churn 並追蹤 SST 的變化, 計算出任意兩個 snapshot 間的變更 - `+` (add), `-` (delete), `M` (modify), `R` (rename)。
 - 第三篇也會也是跟 snapshot 相關的清理相關, 不過第一篇主要是 focus datanode 上資料的清理, 這篇會探討在 Ozone Manager 上怎麼用 SST Files Filtering 來把與各 Snapshot 不相關的資料(SST Files)去蕪存清, 以及 Snapshot Deleting Service 在刪除 snapshot 時, 怎麼處理 snapshot aware reclaimable resource 的 cases
+
+閱讀這篇文章你將了解：
+1. Ozone 如何確保 Snapshot 中的資料安全不被誤刪，保障資料一致性
+2. Deletion Service 與 Deep Clean 機制如何高效回收不可見資料，釋放儲存空間
+3. Reclaimable Filter 如何實現 Snapshot-Aware 的精準回收，避免誤刪仍被引用的資源
 
 ### Ozone Basic
 

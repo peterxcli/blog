@@ -1,5 +1,5 @@
 ---
-title: "Ozone Snapshot Deep Dive 1 - Snapshot Introduction & Deep Clean & Reclaimable Filter"
+title: "Ozone Snapshot Deep Dive 1 - Can This Be Deleted? Snapshot Deep Clean & Reclaimable Filter"
 summary: "Detailed introduction to Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim snapshot data and storage space while ensuring consistency."
 description: "Detailed introduction to Apache Ozone Snapshot's Deep Clean mechanism and Reclaimable Filter design, explaining how to safely and efficiently reclaim snapshot data and storage space while ensuring consistency."
 date: 2025-07-07T17:17:38+08:00
@@ -33,6 +33,11 @@ This series is expected to have three parts detailing the principles and details
 - [Part 1](./) will first introduce the basic structure of Ozone Snapshot as well as Snapshot Deep Clean & Reclaimable Filter. It mainly explains how Ozone solves the problem of avoiding deletion of user-visible data in snapshots and how the deletion service efficiently removes invisible data from the entire cluster.
 - Part 2 will introduce Snapshot Diff, the most important feature in Snapshot. It mainly explains how Snapshot Diff overcomes compaction churn and tracks SST changes to calculate changes between any two snapshots - `+` (add), `-` (delete), `M` (modify), `R` (rename).
 - Part 3 will also be related to snapshot cleanup, but while Part 1 focuses on data cleanup on datanodes, this part will explore how to use SST Files Filtering on Ozone Manager to remove data (SST Files) unrelated to each Snapshot, and how Snapshot Deleting Service handles snapshot-aware reclaimable resource cases when deleting snapshots.
+
+After reading this article, you will understand:
+1. How Ozone ensures data in Snapshots is not mistakenly deleted, guaranteeing data consistency
+2. How the Deletion Service and Deep Clean mechanism efficiently reclaim invisible data and free up storage space
+3. How the Reclaimable Filter achieves snapshot-aware precise reclamation, avoiding accidental deletion of still-referenced resources
 
 ### Ozone Basic
 
