@@ -15,7 +15,7 @@ draft: false
 ---
 
 {{< alert icon="slack" >}}
-> [**源來是你**](https://www.facebook.com/opensource4you) 是在台灣積極貢獻大型開與軟體的社群
+> [**源來適你**](https://www.facebook.com/opensource4you) 是在台灣積極貢獻大型開與軟體的社群
 
 > 接下來我會在以下時間地點跟 [chungen](https://www.linkedin.com/in/chung-en-lee-ab7995225/) 輪流主持 **Ozone 中文會議**
 
