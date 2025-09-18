@@ -25,13 +25,27 @@ draft: false
 
 Apache Ozone is a next-generation distributed file system designed to overcome the small file limitations of traditional HDFS by using RocksDB for efficient metadata storage. This project introduces an **SST-based intelligent compaction optimization** to address RocksDB performance issues in Ozone, particularly under heavy delete workloads (tombstones).
 
-**ozone:**
+### What is Apache Ozone:
+
+- *Ozone Manager (OM)*
+  - Manages the namespace (volumes, buckets, keys), thus called the namespace manager.
+  - Persists the namespace metadata to the RocksDB.
+- *Storage Container Manager (SCM)*
+  - Handles block allocation and replication, called the block space manager.
+  - Persists the Pipeline, Container, Deleted Blocks, etc. to the RocksDB.
+- *Containers*
+  - The fundamental replication unit of Ozone, they are managed by the SCM service.
+- *Datanodes (DN)*
+  - All data are stored on Datanodes (DN).
 
 ![ozone](ozone.png)
 
 ![ozone-table](ozone-table.png)
 
-**rocksdb:**
+### What is RocksDB:
+
+- MemTable + SSTables + WAL + Compaction + Block Cache = RocksDB
+- Uses iterators to read data, including *MemTableIterator*, *TwoLevelIterator*, *BlockIterator*, *MergingIterator*, etc.
 
 ![rocksdb](rocksdb.png)
 
@@ -83,11 +97,67 @@ When a large number of tombstones are skipped, the BlockCache hit rate drops and
 
 ![Compaction Workflow](range-compaction-flow.png)
 
+At a high level, the range scanner walks the bucket keyspace and builds small, compactable ranges without touching data blocks:
+
+- **Track accumulated range size**
+  - Maintain a running sum of the estimated bytes covered by the current candidate range.
+  - The sum is capped by a configurable max range size to keep compactions short and predictable.
+
+- **Get next key range**
+  - Start at `nextKey` (persisted progress) and iterate keys in bucket order to propose the next contiguous range.
+  - Ranges are aligned to natural boundaries (bucket prefix first) to minimize overlap with unrelated keys.
+
+- **Fetch stats of the range (metadata only)**
+  - Query RocksDB table properties and file metadata (smallest/largest key, entries, deletions, data size) across all SSTs and levels that intersect the candidate range.
+  - No data blocks are read; this keeps the scanning phase lightweight.
+
+- **Is the range too large?**
+  - If the accumulated size would exceed the cap, split the range on the nearest SST boundary and update `nextKey` to the split point.
+  - Continue accumulating until the range fits within the limit.
+
+- **Tombstone threshold check**
+  - Compute deletion density for the range using per-file statistics: `deleted_entries / total_entries`.
+  - Only if the density exceeds the threshold do we consider it a good compaction target.
+
+- **Add range to queue**
+  - Enqueue the range for background compaction. A small, non-overlapping range keeps write amplification and IO bounded.
+  - The scheduler drains the queue at a controlled rate, prioritizing higher tombstone density or older ranges first.
+
+- **Loop and advance `nextKey`**
+  - Repeat the process to cover the table. `nextKey` ensures we resume from the last boundary on the next scan cycle and naturally re-evaluate areas touched by previous compactions.
+
 ---
 
 ### Architecture Diagram
 
 ![Architecture Diagram](range-compaction-overview.png)
+
+The service is split into lightweight scanners and a worker that performs compaction, with RocksDB providing both the metadata and the actual compaction machinery:
+
+- **RangeCompactionService**
+  - Hosts multiple per-table compactors (e.g., OBS Table, FSO Table) under one coordinator.
+  - Provides scheduling, backpressure, and a bounded task queue to decouple scanning from compaction.
+
+- **Compactor (per table)**
+  - Periodically scans its table’s keyspace, fetches file-level stats from RocksDB, and identifies ranges with high tombstone density.
+  - Splits oversized candidates on SST boundaries, enqueues compactable ranges, and persists `nextKey` to resume after restarts.
+  - Runs read-only against metadata, so it is CPU/IO light and safe to run frequently.
+
+- **Task queue**
+  - Bounded, prioritized queue (e.g., higher deletion density first; age as a tiebreaker).
+  - Applies simple de-duplication for overlapping ranges to avoid redundant work.
+
+- **Compaction Worker**
+  - Drains tasks and issues manual compactions to RocksDB over the specified key ranges.
+  - Respects concurrency and rate limits to avoid interfering with foreground reads/writes and default background compactions.
+
+- **RocksDB**
+  - Exposes table properties and file metadata to scanners.
+  - Executes the actual compaction and produces new SSTs with tombstones purged where possible.
+
+- **Isolation and extensibility**
+  - New tables can add a compactor without changing the service core.
+  - Global limits (queue size, worker concurrency) and per-table knobs (scan interval, max range size, tombstone threshold) control resource usage and fairness.
 
 ---
 
@@ -121,8 +191,9 @@ When a large number of tombstones are skipped, the BlockCache hit rate drops and
     * **Max compaction write bytes:** Interestingly shows 11.2MB vs 7.2MB at 10⁷ keys
       * *Note: The higher max write bytes for range compaction may indicate concurrent compaction operations or insufficient separation between scan and compaction scheduling, requiring further investigation*
 
-* **Conclusion:**
-  Range compaction provides dramatically improved and scalable read performance with minimal impact on write efficiency. The compaction overhead is actually reduced on average, though peak compaction write activity may be higher due to implementation details that warrant further optimization.
+## Conclusion
+
+Range compaction provides dramatically improved and scalable read performance with minimal impact on write efficiency. The compaction overhead is actually reduced on average, though peak compaction write activity may be higher due to implementation details that warrant further optimization.
 
 ---
 
