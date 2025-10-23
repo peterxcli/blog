@@ -231,41 +231,6 @@ DuckDB → cache_httpfs (Extension)
 
 ![image](https://hackmd.io/_uploads/Hy9oYEJRel.png)
 
-```mermaid
-flowchart TB
-  QE[DuckDB Query Engine]
-
-  %% Boundary (subgraph)
-  subgraph EXT[cache_httpfs Extension]
-    C1[1. Check local cache]
-    H[2. If hit: serve from disk]
-    M[3. If miss: fetch via HTTP]
-    D{4. Sufficient disk space?}
-    E[5a. Evict old entries]
-    S[5b. Store in cache]
-    R[6. Return data]
-
-    C1 -->|hit| H --> R
-    C1 -->|miss| M --> D
-    D -- Yes --> S --> R
-    D -- No --> E --> S --> R
-  end
-
-  QE --> C1
-
-  %% External notes
-  NET([HTTP Network 37.7s])
-  DISK([Cache Disk 3.2s])
-
-  M -.-> NET
-  H -.-> DISK
-  S -.-> DISK
-
-  %% Optional styling
-  style EXT fill:#fff6cc,stroke:#b3a96b,stroke-width:1px
-  style QE fill:#efeaff,stroke:#8e79c6
-```
-
 Above is on-disk cache mode (the extension supports in-memory cache mode as well), which would shows different perf characteristics
 
 ### Cache Management
