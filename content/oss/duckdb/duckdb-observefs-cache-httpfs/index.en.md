@@ -182,10 +182,10 @@ Highlights:
 | No Cache | 37.742s    | N/A           | 1.00x               |
 | Warm Cache | 3.241s   | 659           | 11.64x              |
 
-![image](https://hackmd.io/_uploads/r1Refc0pgl.png)
+![image](fig1.png)
 *Query time: baseline 37.7s vs warm cache 3.2s*
 
-![image](https://hackmd.io/_uploads/ByMzM9CTlx.png)
+![image](fig2.png)
 *Speedup vs baseline: 11.64x*
 
 ### Why It’s Faster
@@ -229,7 +229,7 @@ DuckDB → cache_httpfs (Extension)
   5) Store object in cache → return data
 ```
 
-![image](https://hackmd.io/_uploads/Hy9oYEJRel.png)
+![image](diagram.png)
 
 Above is on-disk cache mode (the extension supports in-memory cache mode as well), which would shows different perf characteristics
 
