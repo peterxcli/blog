@@ -105,7 +105,42 @@ Implementing a Linearizable Log System is challenging, so an alternative approac
 
 #### Snapshot & Recovery (Catch-up, Failure Detection)
 
+Ensured fault tolerance and recoverability through snapshot + log replay mechanisms similar to Redis AOF/RDB.
+
 The state machine can be recovered from the snapshot, and the snapshot only modified if there is a new create, update, or delete operation. The snapshot can be stored in postgresql, and the recovery process can be done by the snapshot and the log to prevent the state machine need to replay all the log from the beginning. The concept is similar to the `AOF` and `RDB` in redis.
+
+{{< mermaid >}}
+sequenceDiagram
+    participant Instance as API Instance
+    participant PG as PostgreSQL
+    participant Redis as Redis Stream
+
+    Note over Instance: Instance Startup/Recovery
+
+    Instance->>PG: Load Latest Snapshot (version N)
+    PG-->>Instance: Return Snapshot Data
+
+    Instance->>Redis: Subscribe to logs from version N+1
+    Redis-->>Instance: Stream logs (N+1, N+2, ...)
+
+    loop Log Replay
+        Instance->>Instance: Apply each log entry
+        Instance->>Instance: Update in-memory state
+    end
+
+    Instance->>Instance: Recovery Complete
+
+    Note over Instance: Normal Operation
+
+    Instance->>PG: Write Operation (create/update/delete)
+    PG->>Redis: Publish log to stream
+    Redis-->>Instance: Subscribe and receive log
+    Instance->>Instance: Apply log to state machine
+
+    Note over Instance,PG: Periodic Snapshot
+    Instance->>PG: Save new snapshot (version N+K)
+    Instance->>Instance: Mark snapshot version
+{{< /mermaid >}}
 
 #### Remove Outdated Data from memory
 
