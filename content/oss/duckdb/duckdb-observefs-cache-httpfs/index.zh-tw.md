@@ -12,6 +12,8 @@ cascade:
 draft: false
 ---
 
+{{< github repo="dentiny/duckdb-filesystem-observability" >}}
+
 ## Introduction
 
 DuckDB’s `EXPLAIN` offers valuable plan details and a rough sense of HTTP activity, but it stops short of revealing I/O timing, latency distributions, and per‑operation(eg. `READ`, `OPEN`, and `LIST`) behavior. For remote data access, that blind spot matters.
@@ -112,11 +114,11 @@ P99 latency 341.040009 millisec
 
 ### Experiment Setup
 
-- Dataset: DuckDB job_movie_info benchmark  
-- File: `https://github.com/duckdb/duckdb-data/releases/download/v1.0/job_movie_info.parquet`  
-- Query: `SELECT SUM(LENGTH(info)) AS total_info_chars FROM read_parquet(...)`  
-- Result: 626,355,125 total characters  
-- DuckDB: v1.4.0  
+- Dataset: DuckDB job_movie_info benchmark
+- File: `https://github.com/duckdb/duckdb-data/releases/download/v1.0/job_movie_info.parquet`
+- Query: `SELECT SUM(LENGTH(info)) AS total_info_chars FROM read_parquet(...)`
+- Result: 626,355,125 total characters
+- DuckDB: v1.4.0
 
 ### Scenario 1: Baseline (No Cache)
 
