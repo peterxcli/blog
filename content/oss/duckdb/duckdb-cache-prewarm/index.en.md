@@ -16,7 +16,7 @@ draft: false
 
 {{< github repo="dentiny/duckdb-cache-prewarm" >}}
 
-**TL;DR:** We built the `cache_prewarm` extension for DuckDB to eliminate cold-start query latency. It preloads table blocks into the buffer pool or OS page cache for local data, and integrates with [`duck-read-cache-fs`](https://github.com/dentiny/duck-read-cache-fs) to prewarm remote files from S3/HTTP.
+**TL;DR:** We built the `cache_prewarm` extension for DuckDB to eliminate cold-start query latency. It preloads table blocks into the buffer pool or OS page cache for local data, and integrates with [`duck-read-cache-fs`](https://github.com/dentiny/duck-read-cache-fs) to preload and cache remote files from S3/HTTP.
 
 ## The Problem: The Cold Cache Penalty
 
@@ -189,6 +189,10 @@ The results were extremely positive: across all local modes (`buffer`, `prefetch
 ## Conclusion
 
 If your analytical workloads suffer from cold starts or you're tired of slow initial queries against S3, give the `cache_prewarm` extension a try. It brings the predictability of traditional database warm-ups to DuckDB's modern, embeddable engine.
+
+## Stay Tuned
+
+[dentiny](https://github.com/dentiny), [Andrewtangtang](https://github.com/Andrewtangtang) and [I(peterxcli)](https://github.com/peterxcli) are building more DuckDB extensions to push the boundaries of DuckDB's capabilities. Stay tuned for more!
 
 ## Further Reading
 
