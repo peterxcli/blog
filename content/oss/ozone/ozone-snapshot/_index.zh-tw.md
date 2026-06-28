@@ -5,7 +5,7 @@ description: ""
 date: 2025-03-19T17:17:38+08:00
 slug: "ozone-snapshot"
 tags: ["ozone", "ozone-snapshot"]
-externalUrl: "/zh-tw/oss/ozone/ozone-snapshot/"
+# externalUrl: "/zh-tw/oss/ozone/ozone-snapshot/"
 # series: ["Documentation"]
 # series_order: 9
 cascade:
