@@ -146,7 +146,6 @@ There are already quite a few PRs and designs which aim to fix compatibility gap
   - [HDDS-15450. Implement ListDirectoryBuckets S3 API for Directory Buckets support](https://github.com/apache/ozone/pull/10408)
 - Other compatibility-related correctness work:
   - [HDDS-15515. Support object Content-Type end-to-end in S3 Gateway](https://github.com/apache/ozone/pull/10472)
-  - [HDDS-15551. Stream reads should respect gRPC flow control backpressure](https://github.com/apache/ozone/pull/10522)
 
 The most useful effect is not just that the percentage moved. It is that the compatibility gap became much more concrete. A failed test can now become a dashboard link, then a JIRA, then a PR, then a nightly result showing whether it really passed.
 
