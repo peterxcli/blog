@@ -4,7 +4,7 @@ summary: "How to Become an Open-Source Committer (Apache Ozone): a College Stude
 description: "How to Become an Open-Source Committer (Apache Ozone): a College Student’s 15-Week Reflection"
 date: 2025-05-14T17:17:38+08:00
 slug: "becoming-an-ozone-committer"
-tags: ["ozone", "oss", "apache"]
+tags: ["blog", "en", "oss", "ozone", "apache"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:

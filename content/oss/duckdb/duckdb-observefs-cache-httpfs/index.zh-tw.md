@@ -4,7 +4,7 @@ summary: "Measure DuckDB filesystem I/O with the observefs extension and acceler
 description: "A deep dive into DuckDB's observefs extension for monitoring filesystem operations, with real-world cache_httpfs performance benchmarks."
 date: 2025-10-07T16:06:08+08:00
 slug: "duckdb-observefs-cache-httpfs"
-tags: ["blog","zh-tw","duckdb","performance","observability"]
+tags: ["blog", "zh-tw", "oss", "duckdb", "performance", "observability"]
 cascade:
   showEdit: true
   showSummary: true

@@ -4,7 +4,7 @@ summary: "How an automated Apache Ozone S3 compatibility dashboard runs nightly 
 description: "Recently I created https://ozone.s3.peterxcli.dev/, an automated update dashboard for Apache Ozone S3 compatibility. It runs Ozone against real S3 compatibility suites, publishes the result every day, and lets you search test cases, inspect failures, read source snippets, open logs, and check whether your PR really helps the compatibility story. It is fully open source at https://github.com/peterxcli/ozone-s3-compatibility."
 date: 2026-06-27T17:17:38+08:00
 slug: "ozone-s3-compatabilty"
-tags: ["ozone", "S3", "compatibility"]
+tags: ["blog", "en", "oss", "ozone", "s3"]
 cascade:
   showEdit: true
   showSummary: true

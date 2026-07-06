@@ -4,7 +4,7 @@ summary: "Eliminating DuckDB Cold Starts with Cache Prewarm"
 description: "Achieving predictable query latency for local and remote data"
 date: 2026-03-06T13:24:12+08:00
 slug: "duckdb-cache-prewarm"
-tags: ["blog","zh-tw","duckdb","performance"]
+tags: ["blog", "zh-tw", "oss", "duckdb", "performance", "cache"]
 # series: ["Documentation"]
 # series_order: 9
 cascade:
