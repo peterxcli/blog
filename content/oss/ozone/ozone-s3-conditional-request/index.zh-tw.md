@@ -13,13 +13,13 @@ draft: false
 ---
 
 > [!Note]
-> Apache Ozone will support conditional PutObject, GetObject, HeadObject, CopyObject, and CompleteMultipartUpload in the upcoming [2.2 release](https://github.com/apache/ozone/releases/tag/ozone-2.2.0-RC0) (currently RC0 is under [voting](https://lists.apache.org/thread/gz567ljydh4ht63h6c9pjfclrbrrr9z7)), and will support conditional DeleteObject and DeleteObjects in 2.3.
+> Apache Ozone will support conditional `PutObject`, `GetObject`, `HeadObject`, `CopyObject`, and `CompleteMultipartUpload` in the upcoming [2.2 release](https://github.com/apache/ozone/releases/tag/ozone-2.2.0-RC0) (RC0 is currently under a [vote](https://lists.apache.org/thread/gz567ljydh4ht63h6c9pjfclrbrrr9z7)), and will add conditional `DeleteObject` and `DeleteObjects` support in 2.3.
 
-As more database systems move their underlying storage to S3 in a shared-everything architecture, the goal is to reduce cost, dependencies, and operational complexity. In the Hadoop 🐘 era, we typically used ZooKeeper and HDFS as the control plane and data plane. Modern systems are moving the control plane to self-managed consensus groups or RDBMS-backed catalogs, while moving the data plane onto AWS S3 or S3-compatible storage.
+More database systems are moving their underlying storage to S3 in shared-everything architectures to reduce cost, dependencies, and operational complexity. In the Hadoop 🐘 era, we typically used ZooKeeper and HDFS as the control plane and data plane. Modern systems are moving the control plane to self-managed consensus groups or RDBMS-backed catalogs, while moving the data plane onto AWS S3 or S3-compatible storage.
 
 Shared-everything systems usually have two pain points: communication overhead and coordination. To reduce write latency, systems often use inline data writes, background flush, and LSN-based union reads. To reduce read latency, they add multi-layer caches, such as self-managed or OS-managed in-memory caches and on-disk caches. Coordination is harder: multiple clients may read the same metadata, make decisions locally, and then try to update the same object. Without a storage-level compare-and-set primitive, applications often need an external lock service, catalog database, or consensus system just to avoid lost updates.
 
-Because Apache Ozone has S3, HCFS, HttpFS, and Java APIs as part of its multi-protocol story, supporting conditional requests has become increasingly important. We are happy to announce that this work is almost delivered.
+Because Apache Ozone exposes S3, HCFS, HttpFS, and Java APIs as part of its multi-protocol story, conditional requests have become increasingly important. This work is now nearly complete.
 
 ## TL;DR
 
@@ -36,7 +36,7 @@ This unlocks safer optimistic concurrency control for data systems built on top 
 >
 > Source: [Amazon S3 conditional requests](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-requests.html)
 
-Conditional requests allow atomic CAS on target objects: clients can coordinate through S3 objects instead of asking external arbiters. Using S3 conditional requests is like moving part of the coordination logic into storage.
+Conditional requests allow atomic CAS operations on target objects: clients can coordinate through S3 objects instead of asking external arbiters. Using S3 conditional requests is like moving part of the coordination logic into storage.
 
 AWS also noted that conditional requests [let customers remove workaround code and simplify their systems](https://www.allthingsdistributed.com/2025/03/in-s3-simplicity-is-table-stakes.html#:~:text=When%20we%20moved%20S3%20to,similar%20reaction). The same storage-level feature also [powers S3 Tables](https://www.allthingsdistributed.com/2025/03/in-s3-simplicity-is-table-stakes.html#:~:text=they%20involve%20a%20complex,storage%2Dlevel%20features), which manages tabular data on S3.
 
@@ -113,7 +113,7 @@ Leader election by itself is not enough. A paused old leader can come back and s
 
 ![Fencing zombie leaders with monotonically increasing epochs](leader-fencing.png "Figure 6. Epoch fencing prevents an old paused leader from writing after a newer leader takes over.")
 
-The leader should periodically update the lock file it acquired for liveness. Other nodes can poll the lock and check whether the lock was released or expired by looking at `Last-Modified`, which S3 exposes as standard object metadata.
+The leader should periodically update the lock file it acquired to signal liveness. Other nodes can poll the lock and check whether the lock was released or expired by looking at `Last-Modified`, which S3 exposes as standard object metadata.
 
 ### WAL write/get with OSWALD
 
@@ -123,7 +123,7 @@ Appending to the WAL can be done with conditional object creation. A writer crea
 
 ![OSWALD write-ahead log built on manifest, snapshot, and chunk objects](oswald-wal.png "Figure 7. OSWALD uses manifest, snapshot, and chunk objects to build a WAL on object storage. Source: [OSWALD](https://github.com/nvartolomei/oswald).")
 
-Now let’s explore how we make Ozone’s S3 conditional requests—the CAS primitive—fast.
+Now let’s look at how Ozone keeps S3 conditional requests—the CAS primitive—fast.
 
 ## Technical details
 
@@ -137,20 +137,20 @@ Before diving into that coalescing optimization, let’s look at Ozone’s atomi
 
 The client indicates the expected epoch of the target object in the key-creation request. After Ozone Manager receives the `createKey` request, it first compares the expected epoch with the live key in the key table. If they match, OM stores the expected epoch along with the open key record in the open key table.
 
-At this stage, two clients can both successfully create an open key, so they can both start streaming file data to the datanode pipeline. A client starts to commit the key once it thinks the file data write is finished.
+At this stage, two clients can both successfully create an open key, so they can both start streaming file data to the datanode pipeline. Once a client believes the file data write is finished, it starts committing the key.
 
 > [!note]
-> The client id in `/vol1/bucket1/key1/{client_id}` is generated by Ozone Manager. It is a unique, non-human-readable id that binds to a single key-creation lifecycle. It is not a persistent client id. “Session id” would probably be a better name, but the diagram uses a meaningful id for clarity.
+> The client ID in `/vol1/bucket1/key1/{client_id}` is generated by Ozone Manager. It is a unique, non-human-readable ID that binds to a single key-creation lifecycle. It is not a persistent client ID. “Session ID” would probably be a better name, but the diagram uses a meaningful ID for clarity.
 
-During the commit phase, Ozone Manager compares the expected epoch stored in the client’s open key record with the live key epoch in the key table in the same transaction. If they match, OM overwrites the live key with the open key. If they do not match, OM cleans up the open key table and returns an atomic rewrite failure with a concurrent conflict.
+During the commit phase, Ozone Manager compares the expected epoch stored in the client’s open key record with the live key epoch in the key table in the same transaction. If they match, OM overwrites the live key with the open key. If they do not match, OM cleans up the open key table and returns an atomic rewrite failure for the concurrent conflict.
 
 ![Atomic rewrite commit phase](atomic-rewrite-commit.png "Figure 9. Atomic rewrite commit phase.")
 
 ### Coalescing the conditional flag
 
-In normal workloads, and especially under optimistic concurrency control, the happy path should happen more often. Therefore, we validate the ETag key metadata at the same time as the key-creation request. Instead of introducing an additional request to fetch the latest key epoch and then plumbing that epoch into the atomic rewrite path, we extend atomic rewrite so it can recognize the expected ETag sent from S3 Gateway, validate it, translate it to an expected epoch, and store that epoch in the open key table. The atomic rewrite commit path can then stay untouched.
+In normal workloads, and especially under optimistic concurrency control, the successful path is expected to be common. Therefore, we validate the key’s ETag metadata at the same time as the key-creation request. Instead of introducing an additional request to fetch the latest key epoch and then plumbing that epoch into the atomic rewrite path, we extend atomic rewrite so it can recognize the expected ETag sent from S3 Gateway, validate it, translate it to an expected epoch, and store that epoch in the open key table. This lets the atomic rewrite commit path stay untouched.
 
-> For more info, see the discussion in [apache/ozone#9334](https://github.com/apache/ozone/pull/9334#discussion_r2558578333).
+> For more information, see the discussion in [apache/ozone#9334](https://github.com/apache/ozone/pull/9334#discussion_r2558578333).
 
 ![Coalescing S3 conditional headers into Ozone atomic rewrite metadata](conditional-flag.png "Figure 10. Coalescing the conditional flag into the normal Ozone write path.")
 
@@ -177,7 +177,7 @@ Related patches:
 
 ##### `If-None-Match`
 
-We extend the existing atomic rewrite path to support “generation must match `0`”, which matches GCS semantics. `If-None-Match: *` then reuses this create-if-absent path.
+We extend the existing atomic rewrite path to support the “generation must match `0`” condition, which matches GCS semantics. `If-None-Match: *` then reuses this create-if-absent path.
 
 {{< mermaid caption="Figure 11. `PUT If-None-Match` maps create-if-absent semantics to Ozone’s generation-match path." >}}
 sequenceDiagram
