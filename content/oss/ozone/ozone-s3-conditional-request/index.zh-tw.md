@@ -13,7 +13,7 @@ draft: false
 ---
 
 > [!Note]
-> Apache Ozone will support conditional PutObject, GetObject, HeadObject, CopyObject, and CompleteMultipartUpload in the upcoming 2.2 release (currently RC0 is under voting), and will support conditional DeleteObject and DeleteObjects in 2.3.
+> Apache Ozone will support conditional PutObject, GetObject, HeadObject, CopyObject, and CompleteMultipartUpload in the upcoming [2.2 release](https://github.com/apache/ozone/releases/tag/ozone-2.2.0-RC0) (currently RC0 is under [voting](https://lists.apache.org/thread/gz567ljydh4ht63h6c9pjfclrbrrr9z7)), and will support conditional DeleteObject and DeleteObjects in 2.3.
 
 As more database systems move their underlying storage to S3 in a shared-everything architecture, the goal is to reduce cost, dependencies, and operational complexity. In the Hadoop 🐘 era, we typically used ZooKeeper and HDFS as the control plane and data plane. Modern systems are moving the control plane to self-managed consensus groups or RDBMS-backed catalogs, while moving the data plane onto AWS S3 or S3-compatible storage.
 
