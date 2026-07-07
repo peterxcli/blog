@@ -1,4 +1,4 @@
 baseURL = 'https://blog.peterxcli.dev/'
-languageCode = 'en-us'
+locale = 'en-us'
 title = "Peter Lee's Developer Blog"
 timeout = "300s"
