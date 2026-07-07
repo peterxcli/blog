@@ -1,0 +1,9 @@
+{{- $caption := .Get "caption" -}}
+{{- if $caption -}}
+  <figure>
+    <pre class="not-prose mermaid">{{ .Inner | safeHTML }}</pre>
+    <figcaption>{{ $caption | markdownify }}</figcaption>
+  </figure>
+{{- else -}}
+  <pre class="not-prose mermaid">{{ .Inner | safeHTML }}</pre>
+{{- end -}}
