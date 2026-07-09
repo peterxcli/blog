@@ -370,9 +370,11 @@ Conditional write 的主要效能問題是：加入 precondition 之後，常見
 
 ## 結論
 
-Object storage 正在變成不只是放 byte 的地方。對許多現代系統而言，它也是協調必須發生的邊界。Apache Ozone 透過 S3 API 支援這些語義，可以讓 Ozone 對那些想把 object storage 當作 shared data plane 的系統更有用。
+Object storage 已經悄悄跨過了一條界線。它不再只是系統停放 bytes 的地方，而是系統進行協調的地方。Metadata catalog、write-ahead log、leader election、job queue、model cache：這些場景都需要一個關於「誰最後寫入」的單一事實來源；而且它們越來越希望直接向 storage layer 問這個問題。
 
-Ozone 可以提供快速的 optimistic concurrency control building block，而不需要每個應用程式都帶上自己的外部協調服務。
+透過把 native S3 conditional requests 帶到 Apache Ozone，並且在 happy path 上不增加任何額外 RPC，我們把 Ozone 變成 optimistic concurrency control 的 first-class substrate。Application 可以直接針對它們已經存放的 object 做 compare-and-swap，也就不再需要那些只是為了避免 lost update 而額外維護的 external lock service、catalog database 和 consensus cluster。
+
+結果是一個更簡單的架構：更少 moving parts、少一個需要維運的元件，而且 coordination 就存在於資料所在的地方。
 
 ## References
 
