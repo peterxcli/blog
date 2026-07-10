@@ -11,7 +11,7 @@ cascade:
   showEdit: true
   showSummary: true
   hideFeatureImage: false
-draft: false
+draft: true
 ---
 
 [Pull Request of this Design](https://github.com/apache/ozone/pull/8178/files)

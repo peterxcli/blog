@@ -1,5 +1,6 @@
 +++
-title = "歡迎來到 Blowfish! :tada:"
+title = "歡迎來到 Peter 的部落格！ 這裡紀錄了一些我的想法。"
 date = 2024-05-18T22:47:36+08:00
+lastmod = 2026-07-11T00:00:00+08:00
 draft = false
 +++

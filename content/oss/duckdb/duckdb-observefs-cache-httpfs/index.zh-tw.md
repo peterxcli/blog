@@ -9,7 +9,7 @@ cascade:
   showEdit: true
   showSummary: true
   hideFeatureImage: false
-draft: false
+draft: true
 ---
 
 {{< github repo="dentiny/duckdb-filesystem-observability" >}}
